@@ -1,0 +1,2708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Series & Parallel Circuit Board - School Science Exhibition</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js (r128) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- OrbitControls -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow: hidden;
+      user-select: none;
+      background-color: #0b0f17;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Custom Glassmorphism */
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    .glass-subpanel {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.5);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.8);
+    }
+
+    /* Pulse Glow */
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.85; transform: scale(1.02); }
+    }
+    .animate-pulse-subtle {
+      animation: pulse-subtle 3s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="w-screen h-screen relative select-none">
+
+  <!-- 3D WebGL Canvas Container -->
+  <div id="canvas-container" class="w-full h-full absolute inset-0 cursor-grab active:cursor-grabbing"></div>
+
+  <!-- Top Navigation Bar -->
+  <header class="absolute top-2 md:top-4 left-2 md:left-4 right-2 md:right-4 flex flex-wrap md:flex-nowrap items-center justify-between gap-2 pointer-events-none z-10">
+    <div class="glass-panel px-3.5 md:px-5 py-2 md:py-3 rounded-2xl flex items-center gap-3 md:gap-4 pointer-events-auto shadow-2xl">
+      <div class="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/20 shrink-0">
+        <i data-lucide="plug-zap" class="w-4 h-4 md:w-5 md:h-5 fill-current"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-white font-bold text-sm md:text-lg tracking-tight">ExtensionBoard 3D</h1>
+          <span class="text-[9px] md:text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 md:px-2 py-0.5 rounded-full uppercase tracking-wider">
+            2 Sockets + 1 Bulb
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-400 hidden sm:block">Series vs Parallel Wiring with 5mm LED Indicators & Dedicated Bulb</p>
+      </div>
+    </div>
+
+    <!-- Top Action Buttons -->
+    <div class="flex items-center gap-1.5 md:gap-2 pointer-events-auto overflow-x-auto max-w-full py-1">
+      <button id="btn-toggle-xray" class="glass-panel hover:bg-slate-800/90 text-indigo-300 hover:text-white px-3 md:px-3.5 py-2 md:py-2.5 rounded-xl text-xs md:text-sm flex items-center gap-1.5 md:gap-2 transition-all shadow-lg border border-indigo-500/30 shrink-0 min-h-[40px]" title="Toggle Inside Wiring X-Ray View">
+        <i data-lucide="eye" class="w-4 h-4 text-indigo-400"></i>
+        <span id="xray-btn-text" class="hidden md:inline">Inside Wiring (X-Ray)</span>
+      </button>
+      <button id="btn-toggle-multimeter" class="glass-panel hover:bg-slate-800/90 text-cyan-300 hover:text-white px-3 md:px-3.5 py-2 md:py-2.5 rounded-xl text-xs md:text-sm flex items-center gap-1.5 md:gap-2 transition-all shadow-lg border border-cyan-500/30 shrink-0 min-h-[40px]" title="Show / Hide Multimeter Panel">
+        <i data-lucide="gauge" class="w-4 h-4 text-cyan-400"></i>
+        <span id="multimeter-btn-text" class="hidden md:inline">Hide Multimeter</span>
+      </button>
+      <button id="btn-hosting-guide" class="glass-panel hover:bg-slate-800/90 text-emerald-400 hover:text-emerald-300 px-3 md:px-3.5 py-2 md:py-2.5 rounded-xl font-semibold text-xs md:text-sm flex items-center gap-1.5 md:gap-2 transition-all border border-emerald-500/30 shadow-lg shrink-0 min-h-[40px]" title="Host on GitHub Pages for Free">
+        <i data-lucide="globe" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">Host Free</span>
+      </button>
+      <button id="btn-diy-guide" class="glass-panel hover:bg-slate-800/90 text-amber-400 hover:text-amber-300 px-3 md:px-4 py-2 md:py-2.5 rounded-xl font-semibold text-xs md:text-sm flex items-center gap-1.5 md:gap-2 transition-all border border-amber-500/30 shadow-lg shadow-amber-950/40 shrink-0 min-h-[40px]" title="Physical Working Model Roadmap">
+        <i data-lucide="wrench" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">Physical Guide</span>
+      </button>
+      <button id="btn-reset" class="glass-panel hover:bg-slate-800/90 text-slate-300 hover:text-white px-3 md:px-3.5 py-2 md:py-2.5 rounded-xl text-xs md:text-sm flex items-center gap-1.5 md:gap-2 transition-all shadow-lg shrink-0 min-h-[40px]" title="Reset All Switches & Plugs">
+        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+        <span class="hidden md:inline">Reset</span>
+      </button>
+      <button id="btn-sound-toggle" class="glass-panel hover:bg-slate-800/90 text-slate-300 hover:text-white p-2 md:p-2.5 rounded-xl text-xs md:text-sm transition-all shadow-lg shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center" title="Mute/Unmute Audio">
+        <i id="icon-sound" data-lucide="volume-2" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Floating Tab to reopen multimeter when hidden -->
+  <button id="btn-open-multimeter-tab" class="fixed top-20 md:top-24 right-0 glass-panel hover:bg-slate-800 text-cyan-300 px-3.5 py-2 md:py-2.5 rounded-l-2xl text-xs font-bold font-mono flex items-center gap-2 shadow-2xl border-r-0 border-cyan-500/40 z-20 transition-all duration-300 translate-x-full pointer-events-auto" title="Click to open Multimeter">
+    <i data-lucide="chevron-left" class="w-4 h-4"></i>
+    <i data-lucide="gauge" class="w-4 h-4 text-cyan-400"></i>
+    <span>MULTIMETER</span>
+  </button>
+
+  <!-- Floating Right / Bottom HUD: Live Multimeter & Analysis (Mobile Responsive Bottom Sheet) -->
+  <aside id="multimeter-panel" class="absolute bottom-2 md:bottom-auto md:top-20 right-2 md:right-4 left-2 md:left-auto w-auto md:w-96 max-h-[50vh] md:max-h-[calc(100vh-100px)] flex flex-col gap-2.5 pointer-events-none z-10 overflow-y-auto pr-1 transition-all duration-300 ease-out">
+
+    <!-- Multimeter Header Card -->
+    <div class="glass-panel p-4 rounded-2xl pointer-events-auto flex flex-col gap-3 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-700/60 pb-2.5">
+        <div class="flex items-center gap-2">
+          <i data-lucide="gauge" class="w-4 h-4 text-cyan-400"></i>
+          <span class="text-xs font-bold text-slate-200 uppercase tracking-wider font-mono">Digital Multimeter</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+            REALTIME
+          </span>
+          <button id="btn-close-multimeter" class="w-6 h-6 rounded-lg bg-slate-800/80 hover:bg-rose-500/20 hover:text-rose-300 text-slate-400 flex items-center justify-center transition-all border border-slate-700/60" title="Hide Multimeter">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Series Circuit Metrics -->
+      <div class="glass-subpanel p-3 rounded-xl flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+            <span class="text-xs font-bold text-amber-300 font-mono">SERIES EXTENSION OUTLETS</span>
+          </div>
+          <span id="series-status-badge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+            ACTIVE (CLOSED)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center pt-1 font-mono">
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-[10px] text-slate-400">VOLT / SOCKET</div>
+            <div id="series-volt" class="text-sm md:text-base font-bold text-amber-400">3.00 V</div>
+          </div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-[10px] text-slate-400">LINE CURRENT</div>
+            <div id="series-curr" class="text-sm md:text-base font-bold text-amber-400">0.30 A</div>
+          </div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-[10px] text-slate-400">REQ TOTAL</div>
+            <div id="series-req" class="text-sm md:text-base font-bold text-amber-400">30.0 Ω</div>
+          </div>
+        </div>
+
+        <p id="series-desc" class="text-[11px] text-slate-400 leading-snug">
+          💡 Series me 2 Sockets + 1 Test Bulb single loop me hain. Current <strong class="text-amber-300">0.30A</strong> barabar hai par 9V voltage 3 hisso me bat gaya (<strong class="text-amber-300">3.0V each</strong>), isliye 5mm LEDs aur test bulb <strong class="text-amber-300">DIM</strong> glow kar rahe hain.
+        </p>
+      </div>
+
+      <!-- Parallel Circuit Metrics -->
+      <div class="glass-subpanel p-3 rounded-xl flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+            <span class="text-xs font-bold text-cyan-300 font-mono">PARALLEL EXTENSION OUTLETS</span>
+          </div>
+          <span id="parallel-status-badge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+            ACTIVE (CLOSED)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center pt-1 font-mono">
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-[10px] text-slate-400">VOLT / SOCKET</div>
+            <div id="parallel-volt" class="text-sm md:text-base font-bold text-cyan-400">9.00 V</div>
+          </div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-[10px] text-slate-400">TOTAL CURR</div>
+            <div id="parallel-curr" class="text-sm md:text-base font-bold text-cyan-400">2.70 A</div>
+          </div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-[10px] text-slate-400">REQ TOTAL</div>
+            <div id="parallel-req" class="text-sm md:text-base font-bold text-cyan-400">3.33 Ω</div>
+          </div>
+        </div>
+
+        <p id="parallel-desc" class="text-[11px] text-slate-400 leading-snug">
+          ⚡ Har socket aur bulb ko full <strong class="text-cyan-300">9.0V line voltage</strong> mil raha hai! Har socket ke neeche laga 5mm LED bright green glow kar raha hai aur sabhi appliances completely independent hain!
+        </p>
+      </div>
+
+      <!-- Teacher's Quick Comparison Card -->
+      <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-700/80 text-xs">
+        <div class="font-bold text-slate-300 mb-2 flex items-center justify-between">
+          <span>Extension Board Viva Rules:</span>
+          <span class="text-[10px] text-slate-400">Key Facts</span>
+        </div>
+        <div class="space-y-1.5 text-[11px] text-slate-300">
+          <div class="flex items-start gap-1.5">
+            <span class="text-amber-400 font-bold">1.</span>
+            <span><strong>Series Row:</strong> Ek bhi plug bahar nikaalne ya switch band karne par <em>poora extension board band</em> ho jata hai!</span>
+          </div>
+          <div class="flex items-start gap-1.5">
+            <span class="text-cyan-400 font-bold">2.</span>
+            <span><strong>Parallel Row:</strong> Koi bhi plug nikaalo, <em>baaki sockets me light/fan bilkul normal</em> chalta rehta hai!</span>
+          </div>
+          <div class="flex items-start gap-1.5">
+            <span class="text-indigo-400 font-bold">3.</span>
+            <span><strong>X-Ray View:</strong> Top plate ko transparent karke internal Phase (Red), Neutral (Black) aur Earth (Green) wiring live dekhein.</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Interaction Tip Card -->
+    <div id="tip-card" class="glass-panel px-3.5 py-2.5 rounded-xl pointer-events-auto shadow-xl flex items-center justify-between gap-2 border border-slate-700/60 transition-all">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+          <i data-lucide="mouse-pointer" class="w-3.5 h-3.5"></i>
+        </div>
+        <div class="text-[11px] text-slate-300 leading-tight">
+          <span class="font-bold text-white">Interactive 3D:</span>
+          Board par kisi bhi <strong>Switch</strong> ya <strong>Bulb</strong> par click karein!
+        </div>
+      </div>
+      <button id="btn-dismiss-tip" class="text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-800/80 transition-all shrink-0" title="Close Hint">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Bottom Floating Camera Toolbar -->
+  <div class="absolute bottom-5 left-1/2 -translate-x-1/2 glass-panel p-2 rounded-2xl flex items-center gap-1.5 md:gap-2 pointer-events-auto z-10 shadow-2xl">
+    <button id="cam-default" class="cam-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 transition-all">
+      <i data-lucide="box" class="w-3.5 h-3.5"></i>
+      <span>3D Angled</span>
+    </button>
+    <button id="cam-top" class="cam-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-1.5 transition-all">
+      <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+      <span>Top Blueprint</span>
+    </button>
+    <button id="cam-series" class="cam-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-1.5 transition-all">
+      <i data-lucide="zoom-in" class="w-3.5 h-3.5"></i>
+      <span>Series Zoom</span>
+    </button>
+    <button id="cam-parallel" class="cam-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-1.5 transition-all">
+      <i data-lucide="zoom-in" class="w-3.5 h-3.5"></i>
+      <span>Parallel Zoom</span>
+    </button>
+  </div>
+
+  <!-- Physical Model DIY Guide Modal -->
+  <div id="diy-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-3xl max-h-[90vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden border border-slate-700/80">
+
+      <!-- Modal Header -->
+      <div class="p-6 border-b border-slate-700/60 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold">
+            <i data-lucide="hammer" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-white tracking-tight">Real Physical Working Model Guide</h2>
+            <p class="text-xs text-slate-400">School Exhibition ke liye haath se model banane ka complete step-by-step roadmap</p>
+          </div>
+        </div>
+        <button id="btn-close-modal" class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition-all">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Tabs Navigation -->
+      <div class="flex border-b border-slate-800 px-4 md:px-6 bg-slate-900/50 text-xs font-semibold overflow-x-auto">
+        <button id="tab-btn-materials" class="py-3 px-3 md:px-4 text-amber-400 border-b-2 border-amber-400 flex items-center gap-1.5 md:gap-2 shrink-0">
+          <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+          <span>1. Bill of Materials</span>
+        </button>
+        <button id="tab-btn-steps" class="py-3 px-3 md:px-4 text-slate-400 hover:text-slate-200 flex items-center gap-1.5 md:gap-2 shrink-0">
+          <i data-lucide="list-ordered" class="w-4 h-4"></i>
+          <span>2. Assembly & Wiring</span>
+        </button>
+        <button id="tab-btn-viva" class="py-3 px-3 md:px-4 text-slate-400 hover:text-slate-200 flex items-center gap-1.5 md:gap-2 shrink-0">
+          <i data-lucide="help-circle" class="w-4 h-4"></i>
+          <span>3. Teacher Viva Q&A</span>
+        </button>
+        <button id="tab-btn-hosting" class="py-3 px-3 md:px-4 text-slate-400 hover:text-slate-200 flex items-center gap-1.5 md:gap-2 shrink-0">
+          <i data-lucide="globe" class="w-4 h-4"></i>
+          <span class="text-emerald-400">4. Free GitHub Pages Hosting</span>
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="p-6 overflow-y-auto space-y-4 text-slate-300 text-sm leading-relaxed">
+
+        <!-- Tab 1: Materials -->
+        <div id="tab-content-materials" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center">
+              <div>
+                <div class="font-bold text-white text-sm">Modular PVC Gang-Box / Acrylic Board</div>
+                <div class="text-slate-400">8-Module gang box ya 12x8 inch Sunboard</div>
+              </div>
+              <div class="text-amber-400 font-bold font-mono">₹60 - ₹90</div>
+            </div>
+            <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center">
+              <div>
+                <div class="font-bold text-white text-sm">6x Indian 6A Universal Sockets + Plugs</div>
+                <div class="text-slate-400">Ya 6x Miniature Bulb Holders (School Safe)</div>
+              </div>
+              <div class="text-amber-400 font-bold font-mono">₹70 - ₹90</div>
+            </div>
+            <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center">
+              <div>
+                <div class="font-bold text-white text-sm">2x 9V Safe DC Batteries / 12V Adapter</div>
+                <div class="text-slate-400">Exhibition safety ke liye DC voltage use karein</div>
+              </div>
+              <div class="text-amber-400 font-bold font-mono">₹50 - ₹70</div>
+            </div>
+            <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center">
+              <div>
+                <div class="font-bold text-white text-sm">2x Piano/Rocker Switches (6A 240V)</div>
+                <div class="text-slate-400">Master Series & Master Parallel control switches</div>
+              </div>
+              <div class="text-amber-400 font-bold font-mono">₹30 - ₹40</div>
+            </div>
+            <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center">
+              <div>
+                <div class="font-bold text-white text-sm">3-Core Wire (Red Phase, Black Neutral, Green Earth)</div>
+                <div class="text-slate-400">Standard domestic color-coded wires</div>
+              </div>
+              <div class="text-amber-400 font-bold font-mono">₹35</div>
+            </div>
+            <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center">
+              <div>
+                <div class="font-bold text-white text-sm">Red Neon Indicator Lamp + Side Cord</div>
+                <div class="text-slate-400">Board power status aur realistic look ke liye</div>
+              </div>
+              <div class="text-amber-400 font-bold font-mono">₹25</div>
+            </div>
+          </div>
+          <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-200 text-xs flex items-center justify-between">
+            <span><strong>Total Estimated Budget:</strong> Sirf ₹250 - ₹300 me 100% photorealistic working extension board model ban jata hai!</span>
+            <span class="font-mono font-bold bg-amber-500/20 px-2.5 py-1 rounded-lg">Best Value</span>
+          </div>
+        </div>
+
+        <!-- Tab 2: Assembly Steps -->
+        <div id="tab-content-steps" class="space-y-3 hidden">
+          <div class="flex gap-3">
+            <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">1</span>
+            <div>
+              <strong class="text-white">Modular Box Layout (Dual Row Design):</strong>
+              <p class="text-xs text-slate-400">Top row par 1 Master Switch aur 3 Sockets lagayein (Series Extension Demo). Bottom row par 1 Master Switch aur 3 Sockets lagayein (Normal Parallel Extension Board).</p>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">2</span>
+            <div>
+              <strong class="text-white">Series Row Wiring (Daisy Chain):</strong>
+              <p class="text-xs text-slate-400">Power Phase $\to$ Series Switch $\to$ Socket 1 Live. Socket 1 ka Neutral wire Socket 2 ke Live me jodein. Socket 2 ka Neutral Socket 3 ke Live me jodein. Socket 3 ka Neutral wapas Negative return me jodein. (Single unbroken loop!)</p>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">3</span>
+            <div>
+              <strong class="text-white">Parallel Row Wiring (Domestic Standard):</strong>
+              <p class="text-xs text-slate-400">Phase wire switch se nikaalkar ek <strong>Common Live Bus</strong> me jodein jo teeno sockets ke Live (L) terminals me branch hoti hai. Ek <strong>Common Neutral Bus</strong> teeno sockets ke Neutral (N) terminals me jodein. Green wire se teeno Earth pins ground karein.</p>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">4</span>
+            <div>
+              <strong class="text-white">Live Demonstration to Judges/Teachers:</strong>
+              <p class="text-xs text-slate-400">Pehle Parallel row me 3 plugs lagayein — teeno full bright jalenge. Ek plug nikaalne par bhi baaki 2 sockets me koi farq nahi padega. Phir Series row me ek plug nikaalein — pura board turant band ho jayega! Teachers will be impressed.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Viva Questions -->
+        <div id="tab-content-viva" class="space-y-3.5 hidden">
+          <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+            <div class="font-bold text-white text-xs mb-1">Q1: Real Extension Board aur ghar ki wiring hamesha Parallel me kyu hoti hai?</div>
+            <div class="text-xs text-slate-300"><strong>Ans:</strong> Do main reasons hain: (1) Har socket ko full 240V/9V voltage milta hai taaki har appliance full speed aur power pe chale, (2) Sabhi sockets independent hote hain — agar ek appliance unplug ho ya switch off ho, to baaki sockets me power chalti rehti hai.</div>
+          </div>
+          <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+            <div class="font-bold text-white text-xs mb-1">Q2: Agar extension cord ko Series me wire kar diya jaye to kya hoga?</div>
+            <div class="text-xs text-slate-300"><strong>Ans:</strong> Do badi problems aayengi: (1) Voltage sabhi sockets me divide ho jayega ($240V / 3 = 80V$ each), jisse bulbs dim jalenge aur fridge/laptop on bhi nahi honge. (2) Agar ek socket se plug bahar nikala jaye ya switch off kiya jaye, to poora extension cord band ho jayega.</div>
+          </div>
+          <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+            <div class="font-bold text-white text-xs mb-1">Q3: Indian 3-Pin Socket me upar wala Earth pin baki do se bada aur lamba kyu hota hai?</div>
+            <div class="text-xs text-slate-300"><strong>Ans:</strong> Earth pin lamba isliye hota hai taaki plug insert karte waqt appliance sabse pehle ground/earth se connect ho, aur unplug karte waqt sabse aakhri me disconnect ho (Safety first principle). Bada isliye hota hai taaki galti se Live ya Neutral me na ghus sake aur metallic chassis leakage current safely earth ho sake.</div>
+          </div>
+          <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+            <div class="font-bold text-white text-xs mb-1">Q4: Parallel circuit me total resistance add hone ke bajay kam kyu ho jati hai?</div>
+            <div class="text-xs text-slate-300"><strong>Ans:</strong> Formula $1/R_{eq} = 1/R_1 + 1/R_2 + 1/R_3$ hota hai. Kyunki current ke flow hone ke liye multiple parallel channels (branches) mil jate hain, isliye total current $I_{total}$ badh jati hai aur net effective resistance ($R_{eq} = V / I_{total}$) circuit ke sabse chhote resistor se bhi kam ho jati hai.</div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Free GitHub Pages Hosting Guide -->
+        <div id="tab-content-hosting" class="space-y-4 hidden">
+          <div class="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-200 text-xs">
+            <h3 class="font-bold text-sm text-emerald-300 mb-1 flex items-center gap-2">
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+              100% Free Lifetime Hosting on GitHub Pages (Mobile Ready)
+            </h3>
+            <p>Aap is poore 3D Exhibition project ko bina kisi server ya paise ke sirf 2 minute me online live kar sakte hain. Iska link ya QR Code banakar science exhibition desk pe chipka sakte hain taaki judges aur teachers apne mobile se interact kar sakein!</p>
+          </div>
+
+          <div class="space-y-3 text-xs">
+            <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex gap-3">
+              <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold shrink-0 mt-0.5">1</span>
+              <div>
+                <strong class="text-white text-sm">GitHub Account & New Repository:</strong>
+                <p class="text-slate-400 mt-1"><a href="https://github.com" target="_blank" class="text-emerald-400 underline font-semibold">github.com</a> pe login karein aur top-right par <strong>"+" &rarr; "New repository"</strong> click karein.</p>
+                <p class="text-slate-400 mt-0.5">Repository name likhein, jaise: <code class="bg-slate-800 text-emerald-300 px-1.5 py-0.5 rounded font-mono">extension-board-3d</code>. Isko <strong>Public</strong> rakhein aur "Create repository" dabayein.</p>
+              </div>
+            </div>
+
+            <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex gap-3">
+              <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold shrink-0 mt-0.5">2</span>
+              <div>
+                <strong class="text-white text-sm">Upload index.html:</strong>
+                <p class="text-slate-400 mt-1">Repo page par <strong>"uploading an existing file"</strong> link pe click karein.</p>
+                <p class="text-slate-400 mt-0.5">Apne folder se <code class="bg-slate-800 text-emerald-300 px-1.5 py-0.5 rounded font-mono">index.html</code> file drag and drop karein aur neeche <strong>"Commit changes"</strong> button dabayein.</p>
+              </div>
+            </div>
+
+            <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex gap-3">
+              <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold shrink-0 mt-0.5">3</span>
+              <div>
+                <strong class="text-white text-sm">Enable GitHub Pages (1 Click):</strong>
+                <p class="text-slate-400 mt-1">Repo ke top menu me <strong>Settings</strong> tab pe jayein. Left sidebar se <strong>Pages</strong> par click karein.</p>
+                <p class="text-slate-400 mt-0.5"><strong>Branch:</strong> dropdown se <code class="bg-slate-800 text-emerald-300 px-1.5 py-0.5 rounded font-mono">main</code> chunein aur folder <code class="bg-slate-800 text-emerald-300 px-1.5 py-0.5 rounded font-mono">/ (root)</code> rehne dein, phir <strong>Save</strong> click karein.</p>
+              </div>
+            </div>
+
+            <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex gap-3">
+              <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold shrink-0 mt-0.5">4</span>
+              <div>
+                <strong class="text-white text-sm">Live Mobile Link & QR Code:</strong>
+                <p class="text-slate-400 mt-1">Sirf 60 seconds me aapka live link ready ho jayega: <br><code class="text-emerald-300 font-bold font-mono bg-slate-950 px-2 py-1 rounded block my-1">https://&lt;your-username&gt;.github.io/extension-board-3d/</code></p>
+                <p class="text-slate-400">Kisi bhi free online QR code generator se is link ka QR Code print karke science exhibition ke chart paper par paste kar dein!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 bg-slate-900/80 border-t border-slate-800 flex justify-end">
+        <button id="btn-close-modal-bottom" class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-all shadow-lg shadow-amber-500/20">
+          Got It, Start 3D Lab
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Main Application Script -->
+  <script>
+    // Initialize Lucide Icons
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      lucide.createIcons();
+    }
+
+    // ==========================================
+    // 1. PROCEDURAL TEXTURE SYNTHESIZERS
+    // ==========================================
+    const ProceduralTextures = {
+      // Real Modular White/Ivory Extension Board Texture
+      createExtensionBoardTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 2048;
+        canvas.height = 1365; // Matches 36x24 aspect ratio
+        const ctx = canvas.getContext('2d');
+
+        // Smooth high-gloss white/ivory PVC gradient
+        const bgGrad = ctx.createLinearGradient(0, 0, 2048, 1365);
+        bgGrad.addColorStop(0, '#ffffff');
+        bgGrad.addColorStop(0.3, '#f8fafc');
+        bgGrad.addColorStop(0.7, '#f1f5f9');
+        bgGrad.addColorStop(1, '#e2e8f0');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, 2048, 1365);
+
+        // Outer Gang-box Bevel Border
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 14;
+        ctx.strokeRect(28, 28, 2048 - 56, 1365 - 56);
+
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(38, 38, 2048 - 76, 1365 - 76);
+
+        // Header Title Bar on Extension Board
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '900 34px "Plus Jakarta Sans", sans-serif';
+        ctx.fillText('⚡ ANCHOR-TECH • MODULAR MULTI-OUTLET EXTENSION BOARD', 75, 95);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '700 16px "JetBrains Mono", monospace';
+        ctx.fillText('SAFETY ISOLATED • 240V AC 50Hz • 6A RATED • SERIES vs PARALLEL DEMONSTRATION MODULE', 75, 128);
+
+        const midY = 1365 / 2;
+
+        // Center Recessed Channel Divider
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillRect(40, midY - 26, 2048 - 80, 52);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(40, midY - 26, 2048 - 80, 52);
+
+        ctx.fillStyle = '#475569';
+        ctx.font = '800 18px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('◄ SECTION 1: SERIES CONNECTION (DEMO ONLY)   ||   SECTION 2: PARALLEL CONNECTION (STANDARD HOME BOARD) ►', 1024, midY + 6);
+        ctx.textAlign = 'left';
+
+        // 3 Switch-Load Pairs (SW 1 + Socket 1, SW 2 + Socket 2, BULB SW + Lamp Holder)
+        const pairsX = [
+          { sw: 462, sock: 666, label: '1' },
+          { sw: 922, sock: 1126, label: '2' }
+        ];
+        const bulbSwX = 1381;
+        const bulbHolderX = 1611;
+
+        // ==========================================
+        // SECTION 1 (TOP): SERIES EXTENSION OUTLETS
+        // ==========================================
+        const topRowY = 398;
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.06)';
+        ctx.fillRect(55, 150, 2048 - 110, midY - 185);
+        ctx.strokeStyle = 'rgba(217, 119, 6, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(55, 150, 2048 - 110, midY - 185);
+
+        ctx.fillStyle = '#b45309';
+        ctx.font = '800 24px "Plus Jakarta Sans", sans-serif';
+        ctx.fillText('SECTION 1: SERIES EXTENSION ROW (DAISY CHAIN LOOP - 3 SWITCHES & 3 LOADS)', 75, 188);
+
+        ctx.fillStyle = '#475569';
+        ctx.font = '600 15px "JetBrains Mono", monospace';
+        ctx.fillText('⚠️ Loop Rule: Voltage divides (3V each). If ANY switch is OFF, plug removed, or bulb unscrewed, ALL outlets turn OFF!', 75, 216);
+
+        // Printed Circuit Trace: Series Daisy-Chain Line (Red/Amber)
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(110, topRowY);
+        ctx.lineTo(pairsX[0].sw, topRowY);
+        ctx.lineTo(pairsX[0].sock, topRowY);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.moveTo(pairsX[0].sock, topRowY);
+        ctx.lineTo(pairsX[1].sw, topRowY);
+        ctx.lineTo(pairsX[1].sock, topRowY);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.moveTo(pairsX[1].sock, topRowY);
+        ctx.lineTo(bulbSwX, topRowY);
+        ctx.lineTo(bulbHolderX, topRowY);
+        ctx.stroke();
+
+        // Neutral Return Trace (Dashed Slate)
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.moveTo(bulbHolderX, topRowY + 70);
+        ctx.lineTo(1920, topRowY + 70);
+        ctx.lineTo(1920, 230);
+        ctx.lineTo(110, 230);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Individual Switches & Sockets Footprints (Series)
+        pairsX.forEach((p, idx) => {
+          // Dedicated Switch Footprint
+          ctx.strokeStyle = '#d97706';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(p.sw - 65, topRowY - 105, 130, 210);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(p.sw - 65, topRowY - 105, 130, 210);
+          ctx.fillStyle = '#b45309';
+          ctx.font = 'bold 14px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(`SW-${idx + 1}`, p.sw, topRowY - 78);
+          ctx.fillStyle = '#64748b';
+          ctx.font = '11px monospace';
+          ctx.fillText(`[PLUG ${idx + 1}]`, p.sw, topRowY + 90);
+
+          // Socket Footprint
+          ctx.strokeStyle = '#cbd5e1';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(p.sock - 88, topRowY - 105, 176, 210);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(p.sock - 88, topRowY - 105, 176, 210);
+
+          // Socket circular faceplate groove
+          ctx.beginPath();
+          ctx.arc(p.sock, topRowY - 15, 62, 0, Math.PI * 2);
+          ctx.fillStyle = '#f8fafc';
+          ctx.fill();
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.stroke();
+
+          ctx.fillStyle = '#b45309';
+          ctx.font = 'bold 14px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(`OUTLET #${idx + 1}`, p.sock, topRowY - 82);
+
+          // 5mm LED Indicator Decal
+          ctx.beginPath();
+          ctx.arc(p.sock, topRowY + 70, 14, 0, Math.PI * 2);
+          ctx.fillStyle = '#f59e0b';
+          ctx.fill();
+          ctx.strokeStyle = '#ca8a04';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+
+          ctx.fillStyle = '#78350f';
+          ctx.font = 'bold 11px monospace';
+          ctx.fillText('● 5mm LED', p.sock, topRowY + 95);
+        });
+
+        // Dedicated Bulb Rocker Switch Footprint (Series)
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bulbSwX - 65, topRowY - 105, 130, 210);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(bulbSwX - 65, topRowY - 105, 130, 210);
+        ctx.fillStyle = '#b45309';
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('BULB SW', bulbSwX, topRowY - 78);
+        ctx.fillStyle = '#64748b';
+        ctx.font = '11px monospace';
+        ctx.fillText('[LAMP I/O]', bulbSwX, topRowY + 90);
+
+        // Dedicated Bulb Holder Footprint (Series)
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bulbHolderX - 88, topRowY - 105, 176, 210);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(bulbHolderX - 88, topRowY - 105, 176, 210);
+
+        ctx.beginPath();
+        ctx.arc(bulbHolderX, topRowY, 68, 0, Math.PI * 2);
+        ctx.fillStyle = '#fef3c7';
+        ctx.fill();
+        ctx.strokeStyle = '#ca8a04';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = '#b45309';
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('LAMP HOLDER', bulbHolderX, topRowY - 78);
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText('10Ω TEST BULB', bulbHolderX, topRowY + 90);
+        ctx.textAlign = 'left';
+
+        // ==========================================
+        // SECTION 2 (BOTTOM): PARALLEL EXTENSION OUTLETS
+        // ==========================================
+        const btmRowY = 967;
+        ctx.fillStyle = 'rgba(14, 165, 233, 0.06)';
+        ctx.fillRect(55, midY + 40, 2048 - 110, midY - 185);
+        ctx.strokeStyle = 'rgba(2, 132, 199, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(55, midY + 40, 2048 - 110, midY - 185);
+
+        ctx.fillStyle = '#0369a1';
+        ctx.font = '800 24px "Plus Jakarta Sans", sans-serif';
+        ctx.fillText('SECTION 2: PARALLEL EXTENSION ROW (STANDARD DOMESTIC BOARD - INDEPENDENT SWITCHES)', 75, midY + 78);
+
+        ctx.fillStyle = '#475569';
+        ctx.font = '600 15px "JetBrains Mono", monospace';
+        ctx.fillText('⚡ Domestic Rule: Full 240V line voltage to EVERY socket & bulb. Each branch operates independently!', 75, midY + 106);
+
+        // Printed Circuit Trace: Parallel Phase Busbar (Red)
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(110, btmRowY - 60);
+        ctx.lineTo(bulbHolderX, btmRowY - 60);
+        ctx.stroke();
+
+        // Drops into each switch and socket
+        pairsX.forEach(p => {
+          ctx.beginPath();
+          ctx.moveTo(p.sw, btmRowY - 60);
+          ctx.lineTo(p.sw, btmRowY);
+          ctx.lineTo(p.sock, btmRowY);
+          ctx.stroke();
+        });
+        // Drop into bulb switch & holder
+        ctx.beginPath();
+        ctx.moveTo(bulbSwX, btmRowY - 60);
+        ctx.lineTo(bulbSwX, btmRowY);
+        ctx.lineTo(bulbHolderX, btmRowY);
+        ctx.stroke();
+
+        // Neutral Return Busbar (Black/Slate)
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(110, btmRowY + 65);
+        ctx.lineTo(bulbHolderX, btmRowY + 65);
+        ctx.stroke();
+
+        // Drops from each socket into Neutral
+        pairsX.forEach(p => {
+          ctx.beginPath();
+          ctx.moveTo(p.sock, btmRowY);
+          ctx.lineTo(p.sock, btmRowY + 65);
+          ctx.stroke();
+        });
+        // Drop from bulb holder into Neutral
+        ctx.beginPath();
+        ctx.moveTo(bulbHolderX, btmRowY);
+        ctx.lineTo(bulbHolderX, btmRowY + 65);
+        ctx.stroke();
+
+        // Individual Switches & Sockets Footprints (Parallel)
+        pairsX.forEach((p, idx) => {
+          // Dedicated Switch Footprint
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(p.sw - 65, btmRowY - 105, 130, 210);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(p.sw - 65, btmRowY - 105, 130, 210);
+          ctx.fillStyle = '#0369a1';
+          ctx.font = 'bold 14px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(`SW-${idx + 1}`, p.sw, btmRowY - 78);
+          ctx.fillStyle = '#64748b';
+          ctx.font = '11px monospace';
+          ctx.fillText(`[PLUG ${idx + 1}]`, p.sw, btmRowY + 90);
+
+          // Socket Footprint
+          ctx.strokeStyle = '#cbd5e1';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(p.sock - 88, btmRowY - 105, 176, 210);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(p.sock - 88, btmRowY - 105, 176, 210);
+
+          // Socket circular faceplate groove
+          ctx.beginPath();
+          ctx.arc(p.sock, btmRowY - 15, 62, 0, Math.PI * 2);
+          ctx.fillStyle = '#f8fafc';
+          ctx.fill();
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.stroke();
+
+          ctx.fillStyle = '#0369a1';
+          ctx.font = 'bold 14px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(`OUTLET #${idx + 1}`, p.sock, btmRowY - 82);
+
+          // 5mm LED Indicator Decal
+          ctx.beginPath();
+          ctx.arc(p.sock, btmRowY + 70, 14, 0, Math.PI * 2);
+          ctx.fillStyle = '#10b981';
+          ctx.fill();
+          ctx.strokeStyle = '#059669';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+
+          ctx.fillStyle = '#065f46';
+          ctx.font = 'bold 11px monospace';
+          ctx.fillText('● 5mm LED', p.sock, btmRowY + 95);
+        });
+
+        // Dedicated Bulb Rocker Switch Footprint (Parallel)
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bulbSwX - 65, btmRowY - 105, 130, 210);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(bulbSwX - 65, btmRowY - 105, 130, 210);
+        ctx.fillStyle = '#0369a1';
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('BULB SW', bulbSwX, btmRowY - 78);
+        ctx.fillStyle = '#64748b';
+        ctx.font = '11px monospace';
+        ctx.fillText('[LAMP I/O]', bulbSwX, btmRowY + 90);
+
+        // Dedicated Bulb Holder Footprint (Parallel)
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bulbHolderX - 88, btmRowY - 105, 176, 210);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(bulbHolderX - 88, btmRowY - 105, 176, 210);
+
+        ctx.beginPath();
+        ctx.arc(bulbHolderX, btmRowY, 68, 0, Math.PI * 2);
+        ctx.fillStyle = '#e0f2fe';
+        ctx.fill();
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = '#0369a1';
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('LAMP HOLDER', bulbHolderX, btmRowY - 78);
+        ctx.fillStyle = '#0284c7';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText('FULL 9V BRIGHT', bulbHolderX, btmRowY + 90);
+        ctx.textAlign = 'left';
+
+        // 4 Chrome Corner Screws
+        [[48, 48], [2048 - 48, 48], [48, 1365 - 48], [2048 - 48, 1365 - 48]].forEach(([cx, cy]) => {
+          ctx.fillStyle = '#cbd5e1';
+          ctx.beginPath();
+          ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#64748b';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cx - 10, cy);
+          ctx.lineTo(cx + 10, cy);
+          ctx.moveTo(cx, cy - 10);
+          ctx.lineTo(cx, cy + 10);
+          ctx.stroke();
+        });
+
+        const texture = new THREE.CanvasTexture(canvas);
+        return texture;
+      },
+
+      // Fallback aliases for backward compatibility
+      createModernBoardTexture() {
+        return this.createExtensionBoardTexture();
+      },
+
+      // Indian 6A 3-Pin Universal Socket Faceplate Texture
+      createSocketTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Ivory/White glossy socket plate
+        const bgGrad = ctx.createLinearGradient(0, 0, 512, 512);
+        bgGrad.addColorStop(0, '#ffffff');
+        bgGrad.addColorStop(0.5, '#f8fafc');
+        bgGrad.addColorStop(1, '#e2e8f0');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Beveled inset groove border
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 8;
+        ctx.strokeRect(16, 16, 480, 480);
+
+        // Circular socket face recess
+        ctx.beginPath();
+        ctx.arc(256, 256, 210, 0, Math.PI * 2);
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fill();
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // 1. Earth Pin Hole (Top Large Round)
+        ctx.beginPath();
+        ctx.arc(256, 130, 36, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+        ctx.strokeStyle = '#ca8a04'; // Brass terminal ring
+        ctx.lineWidth = 5;
+        ctx.stroke();
+
+        // Earth Symbol above Earth pin
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(256, 52); ctx.lineTo(256, 68);
+        ctx.moveTo(242, 68); ctx.lineTo(270, 68);
+        ctx.moveTo(247, 74); ctx.lineTo(265, 74);
+        ctx.moveTo(251, 80); ctx.lineTo(261, 80);
+        ctx.stroke();
+
+        // 2. Live Pin Slot (Bottom Left - Universal Indian slot with shutter)
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(170, 320, 24, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(158, 305, 24, 45); // Rectangular slot extension
+        ctx.strokeStyle = '#ca8a04';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Molded "L" Label
+        ctx.fillStyle = '#475569';
+        ctx.font = 'bold 22px "JetBrains Mono", monospace';
+        ctx.fillText('L', 125, 335);
+
+        // 3. Neutral Pin Slot (Bottom Right)
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(342, 320, 24, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(330, 305, 24, 45);
+        ctx.strokeStyle = '#ca8a04';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Molded "N" Label
+        ctx.fillStyle = '#475569';
+        ctx.font = 'bold 22px "JetBrains Mono", monospace';
+        ctx.fillText('N', 375, 335);
+
+        // Molded 2-Pin Euro/US plug slots (Universal Socket wings)
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(205, 290, 16, 50);
+        ctx.fillRect(291, 290, 16, 50);
+
+        // Center branding & rating text
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 15px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('ANCHOR-PRO', 256, 240);
+        ctx.font = 'bold 13px "JetBrains Mono", monospace';
+        ctx.fillText('6A 240V~ 50Hz', 256, 262);
+        ctx.fillText('IS : 1293', 256, 420);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        return texture;
+      },
+
+      // Modular Piano / Rocker Switch Faceplate Texture
+      createRockerSwitchTexture(isOn, circuitLabel = 'MASTER', isRed = false) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 340;
+        const ctx = canvas.getContext('2d');
+
+        // Switch Frame Base (White/Ivory)
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(0, 0, 256, 340);
+
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(8, 8, 240, 324);
+
+        // Recessed rocker cavity
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(32, 40, 192, 260);
+
+        // Rocker body gradient (depending on ON/OFF state and isRed illuminated switch)
+        const rGrad = ctx.createLinearGradient(32, 40, 224, 300);
+        if (isRed) {
+          if (isOn) {
+            rGrad.addColorStop(0, '#dc2626');
+            rGrad.addColorStop(0.5, '#ef4444');
+            rGrad.addColorStop(1, '#b91c1c');
+          } else {
+            rGrad.addColorStop(0, '#7f1d1d');
+            rGrad.addColorStop(0.5, '#991b1b');
+            rGrad.addColorStop(1, '#450a0a');
+          }
+        } else {
+          if (isOn) {
+            rGrad.addColorStop(0, '#f8fafc');
+            rGrad.addColorStop(0.5, '#e2e8f0');
+            rGrad.addColorStop(1, '#cbd5e1');
+          } else {
+            rGrad.addColorStop(0, '#94a3b8');
+            rGrad.addColorStop(0.5, '#cbd5e1');
+            rGrad.addColorStop(1, '#e2e8f0');
+          }
+        }
+        ctx.fillStyle = rGrad;
+        ctx.fillRect(36, 44, 184, 252);
+
+        // Center bevel dividing line across rocker
+        ctx.strokeStyle = isRed ? '#7f1d1d' : '#64748b';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(36, 170);
+        ctx.lineTo(220, 170);
+        ctx.stroke();
+
+        // Embossed "I" (ON position - Top)
+        ctx.strokeStyle = isRed ? '#ffffff' : (isOn ? '#ef4444' : '#64748b');
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(128, 75);
+        ctx.lineTo(128, 115);
+        ctx.stroke();
+
+        // Red indicator dot when ON
+        ctx.fillStyle = isOn ? '#ef4444' : '#7f1d1d';
+        ctx.beginPath();
+        ctx.arc(128, 140, 8, 0, Math.PI * 2);
+        ctx.fill();
+        if (isOn) {
+          ctx.strokeStyle = isRed ? '#ffffff' : '#fca5a5';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
+        // Embossed "O" (OFF position - Bottom)
+        ctx.strokeStyle = isRed ? '#fca5a5' : '#64748b';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(128, 225, 18, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Bottom label
+        ctx.fillStyle = '#334155';
+        ctx.font = 'bold 13px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(circuitLabel, 128, 320);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        return texture;
+      },
+
+      // Rich Polished Wood Grain (fallback/alternate)
+      createWoodTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 1024;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#6e3c1b';
+        ctx.fillRect(0, 0, 1024, 1024);
+        for (let y = 0; y < 1024; y++) {
+          const n = Math.sin(y * 0.04) * Math.cos(y * 0.015) * 20;
+          const tone = Math.sin((y + n) * 0.08) * 0.5 + 0.5;
+          ctx.fillStyle = `rgba(${Math.floor(75 + tone * 45)}, ${Math.floor(40 + tone * 25)}, ${Math.floor(18 + tone * 15)}, 0.45)`;
+          ctx.fillRect(0, y, 1024, 1);
+        }
+        const texture = new THREE.CanvasTexture(canvas);
+        return texture;
+      },
+
+      // High-detail 9V Alkaline Battery Label Texture
+      createBatteryTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Dark metallic blue & gold styling
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Gold top band
+        const goldGrad = ctx.createLinearGradient(0, 0, 512, 0);
+        goldGrad.addColorStop(0, '#d97706');
+        goldGrad.addColorStop(0.5, '#fde68a');
+        goldGrad.addColorStop(1, '#b45309');
+        ctx.fillStyle = goldGrad;
+        ctx.fillRect(0, 0, 512, 140);
+
+        // Battery Branding Text
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 54px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('9V HEAVY DUTY', 256, 75);
+
+        ctx.font = 'bold 24px Arial, sans-serif';
+        ctx.fillText('EXTRA POWER ALKALINE', 256, 115);
+
+        // Lower body details
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 96px Arial, sans-serif';
+        ctx.fillText('9V', 256, 270);
+
+        ctx.font = 'bold 24px monospace';
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillText('6F22 / TRANSISTOR', 256, 330);
+
+        // Terminal indicators
+        ctx.font = 'bold 36px monospace';
+        ctx.fillStyle = '#ef4444';
+        ctx.fillText('[ + ]', 140, 420);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('[ - ]', 372, 420);
+
+        // Safety warning
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('DO NOT RECHARGE OR DISPOSE IN FIRE', 256, 470);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        return texture;
+      },
+
+      // Modern Brushed Titanium Plaque with laser-etched formula labels
+      createPlaqueTexture(title, formula, subtitle, isSeries = true) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+
+        // Dark brushed titanium metallic gradient
+        const grad = ctx.createLinearGradient(0, 0, 1024, 0);
+        grad.addColorStop(0, '#090d16');
+        grad.addColorStop(0.3, '#172033');
+        grad.addColorStop(0.7, '#172033');
+        grad.addColorStop(1, '#090d16');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 1024, 256);
+
+        // Subtle horizontal brushed lines
+        for (let i = 0; i < 300; i++) {
+          ctx.strokeStyle = Math.random() > 0.5 ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.25)';
+          ctx.lineWidth = 1;
+          const y = Math.random() * 256;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(1024, y);
+          ctx.stroke();
+        }
+
+        // Inner accent border
+        const accentColor = isSeries ? '#fbbf24' : '#38bdf8';
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 4;
+        ctx.strokeRect(14, 14, 996, 228);
+
+        // Screws at 4 corners
+        const screws = [[32, 32], [992, 32], [32, 224], [992, 224]];
+        screws.forEach(([sx, sy]) => {
+          ctx.fillStyle = '#64748b';
+          ctx.beginPath();
+          ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(sx - 5, sy);
+          ctx.lineTo(sx + 5, sy);
+          ctx.stroke();
+        });
+
+        // Engraved Text
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '800 44px "Plus Jakarta Sans", sans-serif';
+        ctx.fillText(title, 512, 85);
+
+        ctx.font = '700 32px "JetBrains Mono", monospace';
+        ctx.fillStyle = accentColor;
+        ctx.fillText(formula, 512, 145);
+
+        ctx.font = '600 22px "Plus Jakarta Sans", sans-serif';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(subtitle, 512, 195);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        return texture;
+      }
+    };
+
+    // ==========================================
+    // 2. PROCEDURAL SOUND SYNTHESIZER (Web Audio)
+    // ==========================================
+    const SoundFX = {
+      audioCtx: null,
+      muted: false,
+
+      init() {
+        if (!this.audioCtx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            this.audioCtx = new AudioContext();
+          }
+        }
+        if (this.audioCtx && this.audioCtx.state === 'suspended') {
+          this.audioCtx.resume();
+        }
+      },
+
+      playRockerSwitch(on) {
+        if (this.muted) return;
+        this.init();
+        if (!this.audioCtx) return;
+
+        const now = this.audioCtx.currentTime;
+        // Two-part mechanical snap: high crisp click + low thud
+        const clickOsc = this.audioCtx.createOscillator();
+        const clickGain = this.audioCtx.createGain();
+        clickOsc.type = 'square';
+        clickOsc.frequency.setValueAtTime(on ? 1200 : 900, now);
+        clickOsc.frequency.exponentialRampToValueAtTime(120, now + 0.035);
+        clickGain.gain.setValueAtTime(0.22, now);
+        clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+        clickOsc.connect(clickGain);
+        clickGain.connect(this.audioCtx.destination);
+        clickOsc.start(now);
+        clickOsc.stop(now + 0.035);
+
+        const thudOsc = this.audioCtx.createOscillator();
+        const thudGain = this.audioCtx.createGain();
+        thudOsc.type = 'sine';
+        thudOsc.frequency.setValueAtTime(on ? 280 : 200, now);
+        thudOsc.frequency.exponentialRampToValueAtTime(50, now + 0.07);
+        thudGain.gain.setValueAtTime(0.28, now);
+        thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+        thudOsc.connect(thudGain);
+        thudGain.connect(this.audioCtx.destination);
+        thudOsc.start(now);
+        thudOsc.stop(now + 0.07);
+      },
+
+      playPlug(isPluggedIn) {
+        if (this.muted) return;
+        this.init();
+        if (!this.audioCtx) return;
+
+        const now = this.audioCtx.currentTime;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = 'triangle';
+        if (isPluggedIn) {
+          osc.frequency.setValueAtTime(300, now);
+          osc.frequency.linearRampToValueAtTime(750, now + 0.06);
+        } else {
+          osc.frequency.setValueAtTime(800, now);
+          osc.frequency.linearRampToValueAtTime(250, now + 0.07);
+        }
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.07);
+      },
+
+      playSwitch(on) {
+        this.playRockerSwitch(on);
+      },
+
+      playUnscrew() {
+        this.playPlug(false);
+      }
+    };
+
+    // ==========================================
+    // 3. CIRCUIT STATE ENGINE
+    // ==========================================
+    const CircuitState = {
+      series: {
+        switchOn: true, // Master Switch
+        switches: [true, true, true], // Individual Socket Switches
+        bulbs: [true, true, true], // true = plugged in & connected
+        resistance: 10.0 // 10 ohms per bulb
+      },
+      parallel: {
+        switchOn: true, // Master Switch
+        switches: [true, true, true], // Individual Socket Switches
+        bulbs: [true, true, true],
+        resistance: 10.0
+      },
+      batteryVoltage: 9.0
+    };
+
+    // ==========================================
+    // 4. THREE.JS SCENE SETUP
+    // ==========================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0c111c);
+    scene.fog = new THREE.FogExp2(0x0c111c, 0.015);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 24, 28);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.maxPolarAngle = Math.PI / 2.05; // Prevent dipping below board table
+    controls.minDistance = 10;
+    controls.maxDistance = 55;
+    controls.target.set(0, 0, 0);
+
+    // ==========================================
+    // 5. LIGHTING RIG
+    // ==========================================
+    const ambientLight = new THREE.AmbientLight(0xfff6ea, 0.65);
+    scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    keyLight.position.set(15, 30, 20);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.width = 2048;
+    keyLight.shadow.mapSize.height = 2048;
+    keyLight.shadow.camera.near = 10;
+    keyLight.shadow.camera.far = 80;
+    keyLight.shadow.camera.left = -22;
+    keyLight.shadow.camera.right = 22;
+    keyLight.shadow.camera.top = 20;
+    keyLight.shadow.camera.bottom = -20;
+    keyLight.shadow.bias = -0.0005;
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.4);
+    fillLight.position.set(-20, 18, -15);
+    scene.add(fillLight);
+
+    // Table / Studio Floor
+    const tableGeo = new THREE.PlaneGeometry(160, 160);
+    const tableMat = new THREE.MeshStandardMaterial({
+      color: 0x070a12,
+      roughness: 0.85,
+      metalness: 0.1
+    });
+    const tableMesh = new THREE.Mesh(tableGeo, tableMat);
+    tableMesh.rotation.x = -Math.PI / 2;
+    tableMesh.position.y = -0.8;
+    tableMesh.receiveShadow = true;
+    scene.add(tableMesh);
+
+    // Subtle table grid helper
+    const grid = new THREE.GridHelper(100, 50, 0x1e293b, 0x0f172a);
+    grid.position.y = -0.79;
+    scene.add(grid);
+
+    // ==========================================
+    // 6. REAL MODULAR EXTENSION BOARD 3D CHASSIS
+    // ==========================================
+    const boardGroup = new THREE.Group();
+    scene.add(boardGroup);
+
+    // 1. High-Gloss Ivory/White PVC Gang Box Base
+    const chassisGeo = new THREE.BoxGeometry(36, 1.2, 24);
+    const chassisMat = new THREE.MeshStandardMaterial({
+      color: 0xf1f5f9,
+      roughness: 0.22,
+      metalness: 0.05
+    });
+    const chassisMesh = new THREE.Mesh(chassisGeo, chassisMat);
+    chassisMesh.position.y = 0;
+    chassisMesh.castShadow = true;
+    chassisMesh.receiveShadow = true;
+    boardGroup.add(chassisMesh);
+
+    // Beveled outer gang-box trim
+    const trimMat = new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0,
+      metalness: 0.1,
+      roughness: 0.25
+    });
+    [12.0, -12.0].forEach(rz => {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(36.2, 0.2, 0.35), trimMat);
+      rail.position.set(0, 0.55, rz);
+      rail.castShadow = true;
+      boardGroup.add(rail);
+    });
+    [18.0, -18.0].forEach(rx => {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.2, 24.2), trimMat);
+      rail.position.set(rx, 0.55, 0);
+      rail.castShadow = true;
+      boardGroup.add(rail);
+    });
+
+    // 2. Modular Top Faceplate (High-Gloss PVC / X-Ray Translucent Acrylic)
+    const extensionBoardTex = ProceduralTextures.createExtensionBoardTexture();
+    const faceplateMat = new THREE.MeshPhysicalMaterial({
+      map: extensionBoardTex,
+      color: 0xffffff,
+      roughness: 0.16,
+      metalness: 0.04,
+      clearcoat: 0.7,
+      clearcoatRoughness: 0.12,
+      transmission: 0,
+      opacity: 1.0,
+      transparent: false
+    });
+    const faceplateGeo = new THREE.BoxGeometry(35.6, 0.22, 23.6);
+    const faceplateMesh = new THREE.Mesh(faceplateGeo, faceplateMat);
+    faceplateMesh.position.y = 0.61;
+    faceplateMesh.receiveShadow = true;
+    boardGroup.add(faceplateMesh);
+
+    // 3. Elevated Rubber Anti-Skid Feet Underneath
+    const rubberMat = new THREE.MeshStandardMaterial({ color: 0x030712, roughness: 0.95 });
+    const footOffsets = [
+      [-16.0, -10.0], [16.0, -10.0],
+      [-16.0, 10.0], [16.0, 10.0],
+      [0, -10.0], [0, 10.0]
+    ];
+    footOffsets.forEach(([fx, fz]) => {
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.0, 0.35, 24), rubberMat);
+      foot.position.set(fx, -0.68, fz);
+      foot.castShadow = true;
+      boardGroup.add(foot);
+    });
+
+    // 4. Chrome Corner Screws on Top Faceplate
+    const chromeScrewMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.95, roughness: 0.15 });
+    const cornerScrewOffsets = [
+      [-16.8, -10.8], [16.8, -10.8],
+      [-16.8, 10.8], [16.8, 10.8]
+    ];
+    cornerScrewOffsets.forEach(([cx, cz]) => {
+      const screw = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.1, 16), chromeScrewMat);
+      screw.position.set(cx, 0.73, cz);
+      boardGroup.add(screw);
+
+      // Screw slot line
+      const slot = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.08), rubberMat);
+      slot.position.set(cx, 0.78, cz);
+      boardGroup.add(slot);
+    });
+
+    // 5. Side Strain-Relief Rubber Grommet & Heavy-Duty 3-Core Power Cord
+    const grommetGeo = new THREE.CylinderGeometry(0.75, 0.95, 0.8, 24);
+    const grommet = new THREE.Mesh(grommetGeo, rubberMat);
+    grommet.rotation.z = Math.PI / 2;
+    grommet.position.set(-18.0, 0.45, 0);
+    grommet.castShadow = true;
+    boardGroup.add(grommet);
+
+    // Thick flexible black 3-core power cord curling onto table
+    const cordPoints = [
+      new THREE.Vector3(-18.0, 0.45, 0),
+      new THREE.Vector3(-20.5, 0.35, 0.8),
+      new THREE.Vector3(-23.0, -0.15, 2.8),
+      new THREE.Vector3(-25.2, -0.65, 5.8),
+      new THREE.Vector3(-26.8, -0.65, 9.2),
+      new THREE.Vector3(-24.5, -0.65, 12.8)
+    ];
+    const cordCurve = new THREE.CatmullRomCurve3(cordPoints);
+    cordCurve.curveType = 'centripetal';
+    const cordGeo = new THREE.TubeGeometry(cordCurve, 64, 0.32, 12, false);
+    const cordMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.85 });
+    const cordMesh = new THREE.Mesh(cordGeo, cordMat);
+    cordMesh.castShadow = true;
+    boardGroup.add(cordMesh);
+
+    // Molded 3-Pin Indian Wall Plug at Cord End
+    const plugGroup = new THREE.Group();
+    plugGroup.position.set(-24.5, -0.65, 12.8);
+
+    const plugBodyGeo = new THREE.BoxGeometry(1.8, 1.3, 2.6);
+    const plugBodyMesh = new THREE.Mesh(plugBodyGeo, cordMat);
+    plugBodyMesh.position.y = 0.65;
+    plugBodyMesh.castShadow = true;
+    plugGroup.add(plugBodyMesh);
+
+    // Brass Pins on Wall Plug
+    const brassPinMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.9, roughness: 0.2 });
+    // Top Earth Pin (Larger round pin)
+    const pEarthPin = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.75, 16), brassPinMat);
+    pEarthPin.rotation.x = Math.PI / 2;
+    pEarthPin.position.set(0, 0.9, 1.6);
+    plugGroup.add(pEarthPin);
+
+    // Live & Neutral Pins
+    const pLivePin = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.65, 16), brassPinMat);
+    pLivePin.rotation.x = Math.PI / 2;
+    pLivePin.position.set(-0.45, 0.45, 1.55);
+    plugGroup.add(pLivePin);
+
+    const pNeutPin = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.65, 16), brassPinMat);
+    pNeutPin.rotation.x = Math.PI / 2;
+    pNeutPin.position.set(0.45, 0.45, 1.55);
+    plugGroup.add(pNeutPin);
+
+    boardGroup.add(plugGroup);
+
+    // 6. Master Red Neon Power Indicator Lamp (Mains Live Indicator)
+    const neonGroup = new THREE.Group();
+    neonGroup.position.set(-13.5, 0.72, 0);
+
+    const neonBezel = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.09, 16, 24), chromeScrewMat);
+    neonBezel.rotation.x = Math.PI / 2;
+    neonGroup.add(neonBezel);
+
+    const neonJewelMat = new THREE.MeshPhysicalMaterial({
+      color: 0xef4444,
+      emissive: 0xef4444,
+      emissiveIntensity: 1.3,
+      transmission: 0.65,
+      roughness: 0.1,
+      transparent: true
+    });
+    const neonJewel = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.44, 0.2, 16), neonJewelMat);
+    neonJewel.position.y = 0.08;
+    neonJewel.castShadow = true;
+    neonGroup.add(neonJewel);
+
+    const neonPointLight = new THREE.PointLight(0xff2222, 1.6, 5.0);
+    neonPointLight.position.set(0, 0.35, 0);
+    neonGroup.add(neonPointLight);
+    boardGroup.add(neonGroup);
+
+    // ==========================================
+    // 7. COMPONENT BUILDERS (Rocker Switches, Sockets, 5mm LEDs & Bulbs)
+    // ==========================================
+    const interactableObjects = []; // Clickable switches, plugs, and bulbs
+    const bulbComponents = [];      // References to all socket loads & bulbs
+    const indicatorLEDComponents = []; // 5mm LED indicators below sockets
+
+    // 7.1 Modular Rocker / Piano Switch Builder
+    function createRockerSwitch(x, z, circuitType, label, switchIndex = null, isRed = false) {
+      const swGroup = new THREE.Group();
+      swGroup.position.set(x, 0.72, z);
+
+      // Ivory modular switch housing
+      const housingMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25, metalness: 0.05 });
+      const housing = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.32, 3.6), housingMat);
+      housing.position.y = 0.05;
+      housing.castShadow = true;
+      housing.receiveShadow = true;
+      swGroup.add(housing);
+
+      // Recessed bevel groove
+      const groove = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.2, 3.0), rubberMat);
+      groove.position.y = 0.12;
+      swGroup.add(groove);
+
+      // Pivoting Rocker Lever
+      const rockerLever = new THREE.Group();
+      rockerLever.position.set(0, 0.2, 0);
+
+      const rockerTex = ProceduralTextures.createRockerSwitchTexture(true, label, isRed);
+      const rockerMat = new THREE.MeshStandardMaterial({
+        map: rockerTex,
+        roughness: 0.3,
+        metalness: 0.05
+      });
+      const rockerPaddle = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.28, 2.7), rockerMat);
+      rockerPaddle.castShadow = true;
+      rockerLever.add(rockerPaddle);
+
+      // Initial ON tilt: -0.21 rad (-12 deg)
+      rockerLever.rotation.x = -0.21;
+      swGroup.add(rockerLever);
+
+      // Raycaster metadata
+      swGroup.userData = {
+        type: 'switch',
+        circuit: circuitType,
+        switchIndex: switchIndex,
+        label: label,
+        isRed: isRed,
+        lever: rockerLever,
+        paddle: rockerPaddle,
+        pivot: rockerLever // alias for backward compatibility
+      };
+      interactableObjects.push(swGroup);
+      [housing, rockerPaddle].forEach(m => {
+        m.userData = swGroup.userData;
+        interactableObjects.push(m);
+      });
+
+      scene.add(swGroup);
+      return swGroup;
+    }
+
+    // 7.2 Indian 6A 3-Pin Universal Socket Base Builder (Clean Socket)
+    function createModularSocket(x, z, circuitType, index) {
+      const sockGroup = new THREE.Group();
+      sockGroup.position.set(x, 0.72, z);
+
+      // Socket Outer Modular Box
+      const sockFrameMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25, metalness: 0.05 });
+      const sockFrame = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.25, 3.6), sockFrameMat);
+      sockFrame.position.y = 0.04;
+      sockFrame.castShadow = true;
+      sockFrame.receiveShadow = true;
+      sockGroup.add(sockFrame);
+
+      // Recessed Faceplate with Indian 3-Pin Universal Socket Texture
+      const sockTex = ProceduralTextures.createSocketTexture();
+      const sockFaceMat = new THREE.MeshStandardMaterial({
+        map: sockTex,
+        roughness: 0.22,
+        metalness: 0.05
+      });
+      const sockFace = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.1, 3.3), sockFaceMat);
+      sockFace.position.y = 0.16;
+      sockGroup.add(sockFace);
+
+      // Metal Terminal Contact Liners (inside the 3 holes)
+      const contactMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.9, roughness: 0.2 });
+      // Earth hole contact
+      const cEarth = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.4, 16), contactMat);
+      cEarth.position.set(0, 0.02, -0.95);
+      sockGroup.add(cEarth);
+      // Live slot contact
+      const cLive = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.4, 16), contactMat);
+      cLive.position.set(-0.65, 0.02, 0.65);
+      sockGroup.add(cLive);
+      // Neutral slot contact
+      const cNeut = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.4, 16), contactMat);
+      cNeut.position.set(0.65, 0.02, 0.65);
+      sockGroup.add(cNeut);
+
+      scene.add(sockGroup);
+      return sockGroup;
+    }
+
+    // 7.3 Realistic 5mm Indicator LED Dome directly below socket
+    function create5mmIndicatorLED(x, z, circuitType, index) {
+      const ledGroup = new THREE.Group();
+      ledGroup.position.set(x, 0.72, z);
+
+      // Chrome Bezel Ring
+      const bezelMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.95, roughness: 0.15 });
+      const bezel = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.07, 12, 24), bezelMat);
+      bezel.rotation.x = Math.PI / 2;
+      bezel.position.y = 0.06;
+      ledGroup.add(bezel);
+
+      // Translucent Colored 5mm Dome
+      const baseColor = circuitType === 'series' ? 0xf59e0b : 0x10b981;
+      const domeMat = new THREE.MeshPhysicalMaterial({
+        color: baseColor,
+        emissive: 0x000000,
+        emissiveIntensity: 0,
+        transmission: 0.65,
+        roughness: 0.15,
+        transparent: true,
+        reflectivity: 0.6
+      });
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), domeMat);
+      dome.position.y = 0.06;
+      ledGroup.add(dome);
+
+      const baseCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.12, 16), domeMat);
+      baseCyl.position.y = 0.06;
+      ledGroup.add(baseCyl);
+
+      // Internal PointLight for dynamic glow
+      const pointLight = new THREE.PointLight(baseColor, 0, 3.8, 2);
+      pointLight.position.set(0, 0.35, 0);
+      ledGroup.add(pointLight);
+
+      const ledData = {
+        circuit: circuitType,
+        index: index,
+        group: ledGroup,
+        domeMat: domeMat,
+        pointLight: pointLight,
+        baseColor: baseColor
+      };
+      indicatorLEDComponents.push(ledData);
+      scene.add(ledGroup);
+      return ledGroup;
+    }
+
+    // 7.4 Removable 3-Pin Appliance Plug (User Appliance plugged into Socket)
+    function createAppliancePlug(x, z, circuitType, index) {
+      const plugGroup = new THREE.Group();
+      plugGroup.position.set(x, 0.82, z);
+
+      // Molded heavy-duty black/dark slate appliance plug body
+      const plugMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.08 });
+      const plugBody = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.72, 2.3), plugMat);
+      plugBody.position.y = 0.36;
+      plugBody.castShadow = true;
+      plugGroup.add(plugBody);
+
+      // Ergonomic grip collar on top
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.85, 0.45, 16), plugMat);
+      grip.position.y = 0.88;
+      grip.castShadow = true;
+      plugGroup.add(grip);
+
+      // Flexible cord exit tail
+      const cordTail = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.8, 12), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 }));
+      cordTail.rotation.x = Math.PI / 3;
+      cordTail.position.set(0, 0.72, 1.1);
+      plugGroup.add(cordTail);
+
+      // Three Brass Prongs extending downwards into socket holes
+      const pinMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.92, roughness: 0.2 });
+      // Earth Pin (top)
+      const pEarth = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.65, 16), pinMat);
+      pEarth.position.set(0, -0.15, -0.95);
+      pEarth.castShadow = true;
+      plugGroup.add(pEarth);
+      // Live Pin
+      const pLive = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.55, 16), pinMat);
+      pLive.position.set(-0.65, -0.15, 0.65);
+      pLive.castShadow = true;
+      plugGroup.add(pLive);
+      // Neutral Pin
+      const pNeut = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.55, 16), pinMat);
+      pNeut.position.set(0.65, -0.15, 0.65);
+      pNeut.castShadow = true;
+      plugGroup.add(pNeut);
+
+      const plugData = {
+        circuit: circuitType,
+        index: index,
+        assembly: plugGroup,
+        isScrewedIn: true // true = plugged in
+      };
+
+      plugGroup.userData = {
+        type: 'plug',
+        data: plugData
+      };
+      interactableObjects.push(plugGroup);
+      [plugBody, grip].forEach(m => {
+        m.userData = plugGroup.userData;
+        interactableObjects.push(m);
+      });
+
+      bulbComponents.push(plugData); // compatibility array
+      scene.add(plugGroup);
+      return plugGroup;
+    }
+
+    // 7.5 Dedicated B22/E27 Batten Lamp Holder + Incandescent Test Bulb
+    function createBulbHolderWithBulb(x, z, circuitType) {
+      const holderGroup = new THREE.Group();
+      holderGroup.position.set(x, 0.72, z);
+
+      // Ivory stepped batten holder base
+      const holderMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25, metalness: 0.05 });
+      const base1 = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.8, 0.25, 24), holderMat);
+      base1.position.y = 0.05;
+      base1.castShadow = true;
+      base1.receiveShadow = true;
+      holderGroup.add(base1);
+
+      const base2 = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.4, 0.35, 24), holderMat);
+      base2.position.y = 0.3;
+      base2.castShadow = true;
+      holderGroup.add(base2);
+
+      // Brass threaded collar
+      const brassMat = new THREE.MeshStandardMaterial({ color: 0xca8a04, metalness: 0.85, roughness: 0.25 });
+      const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.55, 24), brassMat);
+      collar.position.y = 0.7;
+      collar.castShadow = true;
+      holderGroup.add(collar);
+
+      scene.add(holderGroup);
+
+      // Bulb Subgroup (Removable / Unscrewable on click)
+      const bulbGroup = new THREE.Group();
+      bulbGroup.position.set(x, 0.82, z);
+
+      // Brass bayonet/screw cap base of bulb
+      const bulbBase = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.6, 24), brassMat);
+      bulbBase.position.y = 0.85;
+      bulbGroup.add(bulbBase);
+
+      // Transparent Glass Bulb Envelope
+      const glassMat = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        transmission: 0.96,
+        opacity: 1,
+        transparent: true,
+        roughness: 0.06,
+        ior: 1.52,
+        reflectivity: 0.65,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.1
+      });
+      const glassDome = new THREE.Mesh(new THREE.SphereGeometry(1.25, 32, 24), glassMat);
+      glassDome.position.y = 2.15;
+      glassDome.castShadow = false;
+      bulbGroup.add(glassDome);
+
+      // Filament Support Leads
+      const leadMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.25 });
+      const lead1 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.9), leadMat);
+      lead1.position.set(-0.28, 1.75, 0);
+      bulbGroup.add(lead1);
+
+      const lead2 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.9), leadMat);
+      lead2.position.set(0.28, 1.75, 0);
+      bulbGroup.add(lead2);
+
+      // Tungsten Coiled Filament Loop
+      const filamentMat = new THREE.MeshStandardMaterial({
+        color: 0xffaa44,
+        emissive: 0x000000,
+        emissiveIntensity: 0,
+        roughness: 0.2
+      });
+      const filament = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.05, 12, 24, Math.PI), filamentMat);
+      filament.rotation.x = Math.PI;
+      filament.position.set(0, 2.2, 0);
+      bulbGroup.add(filament);
+
+      // Centered PointLight inside bulb
+      const bulbLight = new THREE.PointLight(0xffb74d, 0, 10.0, 2);
+      bulbLight.position.set(0, 2.2, 0);
+      bulbGroup.add(bulbLight);
+
+      const bulbData = {
+        circuit: circuitType,
+        index: 2, // Dedicated Bulb is index 2
+        assembly: bulbGroup,
+        filament: filament,
+        light: bulbLight,
+        isScrewedIn: true
+      };
+
+      bulbGroup.userData = {
+        type: 'bulb',
+        data: bulbData
+      };
+      interactableObjects.push(bulbGroup);
+      [bulbBase, glassDome].forEach(m => {
+        m.userData = bulbGroup.userData;
+        interactableObjects.push(m);
+      });
+
+      bulbComponents.push(bulbData);
+      scene.add(bulbGroup);
+      return bulbGroup;
+    }
+
+    // 7.6 Instantiate 3 Dedicated Switch & Load Pairs (2 Sockets + 1 Bulb per row, NO master switch)
+    const switchComponents = {
+      seriesItems: [],
+      parallelItems: []
+    };
+
+    // Dedicated Switch & Socket Pairs coordinates
+    const socketPairs = [
+      { swX: -11.0, sockX: -7.0 },
+      { swX: -2.0, sockX: 2.0 }
+    ];
+
+    // Series Row: 3 Dedicated Switches + 2 Sockets + 2 5mm LEDs + 2 Appliance Plugs + 1 Dedicated Bulb
+    socketPairs.forEach((pair, idx) => {
+      const sw = createRockerSwitch(pair.swX, -5.0, 'series', `SW-${idx + 1}`, idx, false);
+      switchComponents.seriesItems.push(sw);
+      createModularSocket(pair.sockX, -5.0, 'series', idx);
+      create5mmIndicatorLED(pair.sockX, -2.6, 'series', idx);
+      createAppliancePlug(pair.sockX, -5.0, 'series', idx);
+    });
+    // Dedicated Bulb Rocker Switch (Switch 3) & Batten Bulb Holder
+    const bulbSwSeries = createRockerSwitch(7.0, -5.0, 'series', 'BULB SW', 2, false);
+    switchComponents.seriesItems.push(bulbSwSeries);
+    createBulbHolderWithBulb(11.5, -5.0, 'series');
+
+    // Parallel Row: 3 Dedicated Switches + 2 Sockets + 2 5mm LEDs + 2 Appliance Plugs + 1 Dedicated Bulb
+    socketPairs.forEach((pair, idx) => {
+      const sw = createRockerSwitch(pair.swX, 5.0, 'parallel', `SW-${idx + 1}`, idx, false);
+      switchComponents.parallelItems.push(sw);
+      createModularSocket(pair.sockX, 5.0, 'parallel', idx);
+      create5mmIndicatorLED(pair.sockX, 7.4, 'parallel', idx);
+      createAppliancePlug(pair.sockX, 5.0, 'parallel', idx);
+    });
+    // Dedicated Bulb Rocker Switch (Switch 3) & Batten Bulb Holder
+    const bulbSwParallel = createRockerSwitch(7.0, 5.0, 'parallel', 'BULB SW', 2, false);
+    switchComponents.parallelItems.push(bulbSwParallel);
+    createBulbHolderWithBulb(11.5, 5.0, 'parallel');
+
+    // ==========================================
+    // 8. INTERNAL WIRING & ELECTRON PARTICLES (X-RAY VISIBLE)
+    // ==========================================
+    const internalWiringGroup = new THREE.Group();
+    scene.add(internalWiringGroup);
+    const particleSystems = [];
+
+    function createWire(points, colorHex) {
+      const curve = new THREE.CatmullRomCurve3(points);
+      curve.curveType = 'centripetal';
+      const tubeGeo = new THREE.TubeGeometry(curve, 64, 0.12, 8, false);
+      const wireMat = new THREE.MeshStandardMaterial({
+        color: colorHex,
+        roughness: 0.35,
+        metalness: 0.1
+      });
+      const wireMesh = new THREE.Mesh(tubeGeo, wireMat);
+      wireMesh.castShadow = true;
+      internalWiringGroup.add(wireMesh);
+      return { curve, mesh: wireMesh };
+    }
+
+    function createElectronStream(curve, particleCount, colorHex, circuitType, conditionFn = null) {
+      const pGeo = new THREE.SphereGeometry(0.12, 8, 8);
+      const pMat = new THREE.MeshBasicMaterial({ color: colorHex });
+      const instMesh = new THREE.InstancedMesh(pGeo, pMat, particleCount);
+
+      const dummy = new THREE.Object3D();
+      const offsets = [];
+
+      for (let i = 0; i < particleCount; i++) {
+        offsets.push(i / particleCount);
+        dummy.position.copy(curve.getPoint(i / particleCount));
+        dummy.updateMatrix();
+        instMesh.setMatrixAt(i, dummy.matrix);
+      }
+      instMesh.instanceMatrix.needsUpdate = true;
+      internalWiringGroup.add(instMesh);
+
+      particleSystems.push({
+        curve,
+        instMesh,
+        offsets,
+        count: particleCount,
+        circuit: circuitType,
+        conditionFn,
+        dummy
+      });
+    }
+
+    // --- CONTINUOUS SAFETY EARTH WIRING (GREEN #10b981) ---
+    // Earth wire grounds all sockets to demonstrate Indian home wiring standard
+    const earthWire1 = createWire([
+      new THREE.Vector3(-17.5, 0.42, 0),
+      new THREE.Vector3(-14.0, 0.42, -5.95),
+      new THREE.Vector3(-7.0, 0.42, -5.95),
+      new THREE.Vector3(2.0, 0.42, -5.95)
+    ], 0x10b981);
+
+    const earthWire2 = createWire([
+      new THREE.Vector3(-17.5, 0.42, 0),
+      new THREE.Vector3(-14.0, 0.42, 4.05),
+      new THREE.Vector3(-7.0, 0.42, 4.05),
+      new THREE.Vector3(2.0, 0.42, 4.05)
+    ], 0x10b981);
+
+    // --- SERIES EXTENSION ROW (DAISY CHAIN LOOP: 3 SWITCHES & 3 LOADS) ---
+    const sIsLoopActive = () =>
+      CircuitState.series.switches[0] &&
+      CircuitState.series.switches[1] &&
+      CircuitState.series.switches[2] &&
+      CircuitState.series.bulbs.every(b => b === true);
+
+    // 1. Phase Feed: Mains Entry to SW-1 in (Red)
+    const sWire1 = createWire([
+      new THREE.Vector3(-17.5, 0.45, 0),
+      new THREE.Vector3(-14.5, 0.45, -4.5),
+      new THREE.Vector3(-11.8, 0.45, -5.0)
+    ], 0xef4444);
+    createElectronStream(sWire1.curve, 8, 0xfde047, 'series', () => sIsLoopActive());
+
+    // 2. SW-1 out to Socket 1 Live Terminal (Red)
+    const sWire2 = createWire([
+      new THREE.Vector3(-10.2, 0.45, -5.0),
+      new THREE.Vector3(-8.8, 0.45, -4.35),
+      new THREE.Vector3(-7.65, 0.45, -4.35)
+    ], 0xef4444);
+    createElectronStream(sWire2.curve, 6, 0xfde047, 'series', () => sIsLoopActive());
+
+    // 3. Socket 1 Neutral jumps to SW-2 in (Yellow Series Jumper)
+    const sWire3 = createWire([
+      new THREE.Vector3(-6.35, 0.45, -4.35),
+      new THREE.Vector3(-4.5, 0.45, -5.0),
+      new THREE.Vector3(-2.8, 0.45, -5.0)
+    ], 0xf59e0b);
+    createElectronStream(sWire3.curve, 6, 0xfde047, 'series', () => sIsLoopActive());
+
+    // 4. SW-2 out to Socket 2 Live Terminal (Red)
+    const sWire4 = createWire([
+      new THREE.Vector3(-1.2, 0.45, -5.0),
+      new THREE.Vector3(0.2, 0.45, -4.35),
+      new THREE.Vector3(1.35, 0.45, -4.35)
+    ], 0xef4444);
+    createElectronStream(sWire4.curve, 6, 0xfde047, 'series', () => sIsLoopActive());
+
+    // 5. Socket 2 Neutral jumps to BULB SW in (Yellow Series Jumper)
+    const sWire5 = createWire([
+      new THREE.Vector3(2.65, 0.45, -4.35),
+      new THREE.Vector3(4.5, 0.45, -5.0),
+      new THREE.Vector3(6.2, 0.45, -5.0)
+    ], 0xf59e0b);
+    createElectronStream(sWire5.curve, 6, 0xfde047, 'series', () => sIsLoopActive());
+
+    // 6. BULB SW out to Bulb Holder Live (Red)
+    const sWire6 = createWire([
+      new THREE.Vector3(7.8, 0.45, -5.0),
+      new THREE.Vector3(9.2, 0.45, -5.0),
+      new THREE.Vector3(10.65, 0.45, -5.0)
+    ], 0xef4444);
+    createElectronStream(sWire6.curve, 6, 0xfde047, 'series', () => sIsLoopActive());
+
+    // 7. Bulb Holder Neutral Return back to Mains Entry (Black Wire along perimeter)
+    const sWireReturn = createWire([
+      new THREE.Vector3(12.35, 0.45, -5.0),
+      new THREE.Vector3(16.0, 0.45, -3.0),
+      new THREE.Vector3(16.0, 0.45, -1.0),
+      new THREE.Vector3(0.0, 0.45, -1.0),
+      new THREE.Vector3(-12.0, 0.45, -1.0),
+      new THREE.Vector3(-15.0, 0.45, -0.5),
+      new THREE.Vector3(-17.5, 0.45, 0)
+    ], 0x1e293b);
+    createElectronStream(sWireReturn.curve, 22, 0x38bdf8, 'series', () => sIsLoopActive());
+
+    // --- PARALLEL EXTENSION ROW (STANDARD DOMESTIC BOARD: 3 DEDICATED SWITCHES) ---
+    const pIsOn = () => true;
+    const pB0 = () => CircuitState.parallel.switches[0] && CircuitState.parallel.bulbs[0];
+    const pB1 = () => CircuitState.parallel.switches[1] && CircuitState.parallel.bulbs[1];
+    const pB2 = () => CircuitState.parallel.switches[2] && CircuitState.parallel.bulbs[2];
+
+    // 1. Phase Feed: Mains Entry to SW-1 Phase Terminal (Red)
+    const pWireBatToSw = createWire([
+      new THREE.Vector3(-17.5, 0.45, 0),
+      new THREE.Vector3(-14.5, 0.45, 3.8),
+      new THREE.Vector3(-11.8, 0.45, 3.8)
+    ], 0xef4444);
+    createElectronStream(pWireBatToSw.curve, 8, 0xfde047, 'parallel', () => pB0() || pB1() || pB2());
+
+    // 2. SW-1 Phase Input drop into SW-1
+    const pWireSw1In = createWire([
+      new THREE.Vector3(-11.8, 0.45, 3.8),
+      new THREE.Vector3(-11.8, 0.45, 5.0)
+    ], 0xef4444);
+    createElectronStream(pWireSw1In.curve, 4, 0xfde047, 'parallel', () => pB0());
+
+    // 3. SW-1 Output to Socket 1 Live Terminal (Red)
+    const pWireTap0Pos = createWire([
+      new THREE.Vector3(-10.2, 0.45, 5.0),
+      new THREE.Vector3(-8.8, 0.45, 5.65),
+      new THREE.Vector3(-7.65, 0.45, 5.65)
+    ], 0xef4444);
+    createElectronStream(pWireTap0Pos.curve, 6, 0xfde047, 'parallel', () => pB0());
+
+    // 4. Positive Bus: SW-1 to SW-2 (Carries current if Socket 2 OR Bulb is connected!)
+    const pWireNode1ToNode2 = createWire([
+      new THREE.Vector3(-11.8, 0.45, 3.8),
+      new THREE.Vector3(-6.0, 0.45, 3.8),
+      new THREE.Vector3(-2.8, 0.45, 3.8)
+    ], 0xef4444);
+    createElectronStream(pWireNode1ToNode2.curve, 8, 0xfde047, 'parallel', () => pB1() || pB2());
+
+    // 5. Drop into SW-2 and Output from SW-2 to Socket 2 Live Terminal
+    const pWireTap1Pos = createWire([
+      new THREE.Vector3(-1.2, 0.45, 5.0),
+      new THREE.Vector3(0.2, 0.45, 5.65),
+      new THREE.Vector3(1.35, 0.45, 5.65)
+    ], 0xef4444);
+    createElectronStream(pWireTap1Pos.curve, 6, 0xfde047, 'parallel', () => pB1());
+
+    // 6. Positive Bus: SW-2 to BULB SW (Carries current if Dedicated Bulb is active!)
+    const pWireNode2ToNode3 = createWire([
+      new THREE.Vector3(-2.8, 0.45, 3.8),
+      new THREE.Vector3(2.5, 0.45, 3.8),
+      new THREE.Vector3(6.2, 0.45, 3.8)
+    ], 0xef4444);
+    createElectronStream(pWireNode2ToNode3.curve, 8, 0xfde047, 'parallel', () => pB2());
+
+    // 7. BULB SW Output to Dedicated Bulb Holder Live Terminal
+    const pWireTap2Pos = createWire([
+      new THREE.Vector3(7.8, 0.45, 5.0),
+      new THREE.Vector3(9.2, 0.45, 5.0),
+      new THREE.Vector3(10.65, 0.45, 5.0)
+    ], 0xef4444);
+    createElectronStream(pWireTap2Pos.curve, 6, 0xfde047, 'parallel', () => pB2());
+
+    // --- PARALLEL COMMON NEUTRAL RETURN BUS (BLACK) ---
+    // 8. Drop from Dedicated Bulb Neutral down to NegNode 2
+    const pWireTap2Neg = createWire([
+      new THREE.Vector3(12.35, 0.45, 5.0),
+      new THREE.Vector3(12.35, 0.45, 7.5),
+      new THREE.Vector3(11.5, 0.45, 7.5)
+    ], 0x1e293b);
+    createElectronStream(pWireTap2Neg.curve, 4, 0x38bdf8, 'parallel', () => pB2());
+
+    // 9. Negative Bus: NegNode 2 to NegNode 1 (Carries return current if Dedicated Bulb is connected!)
+    const pWireNeg3To2 = createWire([
+      new THREE.Vector3(11.5, 0.45, 7.5),
+      new THREE.Vector3(7.0, 0.45, 7.5),
+      new THREE.Vector3(2.0, 0.45, 7.5)
+    ], 0x1e293b);
+    createElectronStream(pWireNeg3To2.curve, 8, 0x38bdf8, 'parallel', () => pB2());
+
+    // 10. Drop from Socket 2 Neutral down to NegNode 1
+    const pWireTap1Neg = createWire([
+      new THREE.Vector3(2.65, 0.45, 5.65),
+      new THREE.Vector3(2.0, 0.45, 7.5)
+    ], 0x1e293b);
+    createElectronStream(pWireTap1Neg.curve, 4, 0x38bdf8, 'parallel', () => pB1());
+
+    // 11. Negative Bus: NegNode 1 to NegNode 0 (Carries return current if Socket 2 OR Bulb is connected!)
+    const pWireNeg2To1 = createWire([
+      new THREE.Vector3(2.0, 0.45, 7.5),
+      new THREE.Vector3(-2.5, 0.45, 7.5),
+      new THREE.Vector3(-7.0, 0.45, 7.5)
+    ], 0x1e293b);
+    createElectronStream(pWireNeg2To1.curve, 8, 0x38bdf8, 'parallel', () => pB1() || pB2());
+
+    // 12. Drop from Socket 1 Neutral down to NegNode 0
+    const pWireTap0Neg = createWire([
+      new THREE.Vector3(-6.35, 0.45, 5.65),
+      new THREE.Vector3(-7.0, 0.45, 7.5)
+    ], 0x1e293b);
+    createElectronStream(pWireTap0Neg.curve, 4, 0x38bdf8, 'parallel', () => pB0());
+
+    // 13. Neutral Return: NegNode 0 back to Mains Entry
+    const pWireNeg1ToBat = createWire([
+      new THREE.Vector3(-7.0, 0.45, 7.5),
+      new THREE.Vector3(-11.0, 0.45, 7.5),
+      new THREE.Vector3(-14.5, 0.45, 6.0),
+      new THREE.Vector3(-16.5, 0.45, 3.0),
+      new THREE.Vector3(-17.5, 0.45, 0)
+    ], 0x1e293b);
+    createElectronStream(pWireNeg1ToBat.curve, 22, 0x38bdf8, 'parallel', () => pB0() || pB1() || pB2());
+
+    // ==========================================
+    // 8.5 X-RAY INSIDE WIRING CONTROLLER
+    // ==========================================
+    let isXRayMode = false;
+    function setXRayMode(enable) {
+      isXRayMode = enable;
+      const xrayBtn = document.getElementById('btn-toggle-xray');
+      const xrayBtnText = document.getElementById('xray-btn-text');
+
+      if (isXRayMode) {
+        faceplateMat.transmission = 0.88;
+        faceplateMat.opacity = 0.32;
+        faceplateMat.transparent = true;
+        faceplateMat.roughness = 0.08;
+        faceplateMat.needsUpdate = true;
+
+        if (xrayBtn) {
+          xrayBtn.className = 'glass-panel bg-indigo-600/30 text-indigo-200 px-3.5 py-2.5 rounded-xl text-xs md:text-sm flex items-center gap-2 transition-all shadow-lg border border-indigo-400/60 ring-2 ring-indigo-500/40';
+        }
+        if (xrayBtnText) {
+          xrayBtnText.innerText = 'Solid PVC Mode';
+        }
+      } else {
+        faceplateMat.transmission = 0;
+        faceplateMat.opacity = 1.0;
+        faceplateMat.transparent = false;
+        faceplateMat.roughness = 0.16;
+        faceplateMat.needsUpdate = true;
+
+        if (xrayBtn) {
+          xrayBtn.className = 'glass-panel hover:bg-slate-800/90 text-indigo-300 hover:text-white px-3.5 py-2.5 rounded-xl text-xs md:text-sm flex items-center gap-2 transition-all shadow-lg border border-indigo-500/30';
+        }
+        if (xrayBtnText) {
+          xrayBtnText.innerText = 'Inside Wiring (X-Ray)';
+        }
+      }
+    }
+
+    const btnToggleXray = document.getElementById('btn-toggle-xray');
+    if (btnToggleXray) {
+      btnToggleXray.addEventListener('click', () => {
+        setXRayMode(!isXRayMode);
+      });
+    }
+
+    // ==========================================
+    // 9. SIMULATION ENGINE & VISUAL UPDATES
+    // ==========================================
+    function updateCircuitSimulation() {
+      // SERIES LOGIC (DAISY-CHAIN LOOP: 3 DEDICATED SWITCHES & 3 LOADS)
+      const sSwitches = CircuitState.series.switches;
+      const sBulbs = CircuitState.series.bulbs;
+      const sAllSwitchesOn = sSwitches[0] && sSwitches[1] && sSwitches[2];
+      const sAllBulbsPlugged = sBulbs[0] && sBulbs[1] && sBulbs[2];
+      const sCircuitActive = sAllSwitchesOn && sAllBulbsPlugged;
+
+      const sReq = sAllBulbsPlugged ? 30.0 : Infinity;
+      const sCurrent = sCircuitActive ? (9.0 / 30.0) : 0.0; // 0.30 A
+      const sVoltPerBulb = sCircuitActive ? 3.0 : 0.0;       // 3.00 V
+
+      // PARALLEL LOGIC (3 INDEPENDENT DOMESTIC BRANCHES: SW1->SOCK1, SW2->SOCK2, BULBSW->BULB)
+      const pSwitches = CircuitState.parallel.switches;
+      const pBulbs = CircuitState.parallel.bulbs;
+      const branch0Active = pSwitches[0] && pBulbs[0];
+      const branch1Active = pSwitches[1] && pBulbs[1];
+      const branch2Active = pSwitches[2] && pBulbs[2];
+      const activeParallelBranches = (branch0Active ? 1 : 0) + (branch1Active ? 1 : 0) + (branch2Active ? 1 : 0);
+
+      const pReq = (activeParallelBranches > 0) ? (10.0 / activeParallelBranches) : Infinity;
+      const pCurrentTotal = (activeParallelBranches * (9.0 / 10.0)); // up to 2.70 A
+      const pVoltPerBulb = 9.0; // Full 9V across each active branch
+
+      // 1. Update 5mm Indicator LEDs
+      indicatorLEDComponents.forEach(led => {
+        if (led.circuit === 'series') {
+          // Series 5mm LED: glows amber dim (3.0V) when series circuit is active
+          if (sCircuitActive && sBulbs[led.index]) {
+            led.domeMat.emissive.setHex(0xf59e0b);
+            led.domeMat.emissiveIntensity = 0.55;
+            led.pointLight.color.setHex(0xf59e0b);
+            led.pointLight.intensity = 0.75;
+          } else {
+            led.domeMat.emissiveIntensity = 0;
+            led.pointLight.intensity = 0;
+          }
+        } else {
+          // Parallel 5mm LED: glows emerald green radiant (9.0V) when its branch is active
+          const branchActive = pSwitches[led.index] && pBulbs[led.index];
+          if (branchActive) {
+            led.domeMat.emissive.setHex(0x10b981);
+            led.domeMat.emissiveIntensity = 1.35;
+            led.pointLight.color.setHex(0x34d399);
+            led.pointLight.intensity = 1.6;
+          } else {
+            led.domeMat.emissiveIntensity = 0;
+            led.pointLight.intensity = 0;
+          }
+        }
+      });
+
+      // 2. Update Incandescent Test Bulbs (Dedicated Batten Holders)
+      bulbComponents.filter(b => b.filament).forEach(bulb => {
+        if (bulb.circuit === 'series') {
+          if (sCircuitActive && bulb.isScrewedIn) {
+            // Warm Dim Filament Glow (3V)
+            bulb.filament.material.emissive.setHex(0xff7700);
+            bulb.filament.material.emissiveIntensity = 0.45;
+            bulb.light.color.setHex(0xff9922);
+            bulb.light.intensity = 0.8;
+            bulb.light.distance = 4.5;
+          } else {
+            bulb.filament.material.emissiveIntensity = 0;
+            bulb.light.intensity = 0;
+          }
+        } else {
+          // Parallel Dedicated Bulb (Branch 2)
+          if (branch2Active && bulb.isScrewedIn) {
+            // Intense Radiant Warm-White (Full 9V)
+            bulb.filament.material.emissive.setHex(0xfff3ad);
+            bulb.filament.material.emissiveIntensity = 1.4;
+            bulb.light.color.setHex(0xfff0aa);
+            bulb.light.intensity = 2.6;
+            bulb.light.distance = 9.5;
+          } else {
+            bulb.filament.material.emissiveIntensity = 0;
+            bulb.light.intensity = 0;
+          }
+        }
+      });
+
+      // 3. Update UI Multimeter Readout
+      document.getElementById('series-volt').innerText = sCircuitActive ? '3.00 V' : '0.00 V';
+      document.getElementById('series-curr').innerText = sCircuitActive ? '0.30 A' : '0.00 A';
+      document.getElementById('series-req').innerText = sAllBulbsPlugged ? '30.0 Ω' : 'OPEN (∞)';
+
+      const sBadge = document.getElementById('series-status-badge');
+      const sDesc = document.getElementById('series-desc');
+      if (!sAllSwitchesOn) {
+        sBadge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800 animate-pulse';
+        sBadge.innerText = 'LOOP BROKEN (SW OFF)';
+        sDesc.innerHTML = '⚠️ Kisi bhi switch (SW 1, SW 2 ya BULB SW) ke OFF hone se daisy-chain loop toot gaya! <strong class="text-rose-400">Sabhi sockets aur test bulb ek sath band ho gaye (0V, 0A)</strong>.';
+      } else if (!sAllBulbsPlugged) {
+        sBadge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800 animate-pulse';
+        sBadge.innerText = 'CIRCUIT BROKEN (PLUG OUT)';
+        sDesc.innerHTML = '⚠️ Ek appliance plug ya bulb nikalne se continuous series loop open ho gaya! <strong class="text-rose-400">Sabhi sockets dead ho gaye (0V, 0A)</strong>.';
+      } else {
+        sBadge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800';
+        sBadge.innerText = 'ACTIVE (CLOSED)';
+        sDesc.innerHTML = '💡 Current sabhi loads me <strong class="text-amber-300">ek barabar (0.30A)</strong> hai par 9V voltage 3 hisso me bat gaya (<strong class="text-amber-300">3.0V each</strong>), isliye 5mm LEDs aur test bulb <strong class="text-amber-300">DIM</strong> glow kar rahe hain.';
+      }
+
+      document.getElementById('parallel-volt').innerText = (activeParallelBranches > 0) ? '9.00 V' : '0.00 V';
+      document.getElementById('parallel-curr').innerText = pCurrentTotal.toFixed(2) + ' A';
+      document.getElementById('parallel-req').innerText = (activeParallelBranches > 0) ? pReq.toFixed(2) + ' Ω' : 'OPEN (∞)';
+
+      const pBadge = document.getElementById('parallel-status-badge');
+      const pDesc = document.getElementById('parallel-desc');
+      if (activeParallelBranches === 0) {
+        pBadge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800';
+        pBadge.innerText = 'ALL LOADS OFF';
+        pDesc.innerHTML = '🛑 Sabhi switches OFF hain ya appliance plugs/bulbs nikle hue hain.';
+      } else if (activeParallelBranches < 3) {
+        pBadge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800';
+        pBadge.innerText = `${activeParallelBranches}/3 LOADS ACTIVE`;
+        pDesc.innerHTML = `🌟 <strong>Dedicated Switch Control:</strong> Har socket aur bulb ka apna dedicated switch hai (SW 1, SW 2, BULB SW)! Koi bhi switch OFF karo ya plug nikaalo, baaki <strong class="text-cyan-300">${activeParallelBranches} active loads full 9.0V</strong> par bina kisi drop ke chalte rahenge!`;
+      } else {
+        pBadge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800';
+        pBadge.innerText = 'ACTIVE (CLOSED)';
+        pDesc.innerHTML = '⚡ Har outlet aur bulb ko full <strong class="text-cyan-300">9.0V line voltage</strong> mil raha hai! Dono sockets ke neeche 5mm LEDs bright green glow kar rahe hain aur bulb fully radiant hai (Total current: <strong class="text-cyan-300">2.70A</strong>).';
+      }
+    }
+
+    // ==========================================
+    // 10. RAYCASTER & CLICK INTERACTIONS
+    // ==========================================
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    function onPointerClick(event) {
+      // Ignore clicks on HTML UI panels
+      if (event.target.closest('header, aside, #diy-modal, button')) return;
+
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+
+      const intersects = raycaster.intersectObjects(interactableObjects, true);
+
+      if (intersects.length > 0) {
+        let hitObj = intersects[0].object;
+        while (hitObj && !hitObj.userData?.type && hitObj.parent) {
+          hitObj = hitObj.parent;
+        }
+
+        if (hitObj && hitObj.userData) {
+          const uData = hitObj.userData;
+
+          // CLICK ON SWITCH (MASTER OR INDIVIDUAL SOCKET SWITCH)
+          if (uData.type === 'switch') {
+            const cType = uData.circuit;
+            let newState;
+
+            if (uData.switchIndex === null) {
+              // Master Rocker Switch
+              CircuitState[cType].switchOn = !CircuitState[cType].switchOn;
+              newState = CircuitState[cType].switchOn;
+            } else {
+              // Individual Socket Rocker Switch
+              const sIdx = uData.switchIndex;
+              CircuitState[cType].switches[sIdx] = !CircuitState[cType].switches[sIdx];
+              newState = CircuitState[cType].switches[sIdx];
+            }
+
+            SoundFX.playRockerSwitch(newState);
+
+            // Animate rocker lever tilting along X axis (-12 deg ON / +12 deg OFF)
+            const lever = uData.lever || uData.pivot;
+            if (lever) {
+              const targetRotX = newState ? -0.21 : 0.21;
+              animateProperty(lever.rotation, 'x', targetRotX, 180);
+            }
+
+            // Update rocker face texture with dynamic red status dot
+            if (uData.paddle && uData.paddle.material) {
+              uData.paddle.material.map = ProceduralTextures.createRockerSwitchTexture(
+                newState,
+                uData.label,
+                uData.isRed
+              );
+              uData.paddle.material.needsUpdate = true;
+            }
+
+            updateCircuitSimulation();
+          }
+
+          // CLICK ON APPLIANCE PLUG OR DEDICATED BULB
+          if (uData.type === 'bulb' || uData.type === 'plug') {
+            const bData = uData.data;
+            const cType = bData.circuit;
+            const idx = bData.index;
+
+            bData.isScrewedIn = !bData.isScrewedIn;
+            CircuitState[cType].bulbs[idx] = bData.isScrewedIn;
+
+            SoundFX.playPlug(bData.isScrewedIn);
+
+            // Animate 3-pin plug or bulb unplugging: translates upward and tilts slightly
+            const targetY = bData.isScrewedIn ? 0.82 : 3.4;
+            const targetRotZ = bData.isScrewedIn ? 0 : 0.35;
+            animateProperty(bData.assembly.position, 'y', targetY, 300);
+            animateProperty(bData.assembly.rotation, 'z', targetRotZ, 300);
+
+            updateCircuitSimulation();
+          }
+        }
+      }
+    }
+
+    // Simple smooth tweening helper
+    function animateProperty(obj, prop, targetVal, durationMs) {
+      const startVal = obj[prop];
+      const startTime = performance.now();
+
+      function step(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / durationMs, 1);
+        // Ease-out cubic
+        const ease = 1 - Math.pow(1 - progress, 3);
+        obj[prop] = startVal + (targetVal - startVal) * ease;
+        if (progress < 1) {
+          requestAnimationFrame(step);
+        }
+      }
+      requestAnimationFrame(step);
+    }
+
+    // Touch & Pointer interaction listeners (Works on mobile touch, stylus & mouse without double triggers)
+    let pointerDownPos = { x: 0, y: 0, time: 0 };
+    window.addEventListener('pointerdown', (e) => {
+      pointerDownPos = { x: e.clientX, y: e.clientY, time: performance.now() };
+    });
+    window.addEventListener('pointerup', (e) => {
+      const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+      const elapsed = performance.now() - pointerDownPos.time;
+      if (dist < 12 && elapsed < 400) {
+        onPointerClick(e);
+      }
+    });
+
+    // Hover Cursor Management
+    window.addEventListener('mousemove', (event) => {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(interactableObjects, true);
+      container.style.cursor = hits.length > 0 ? 'pointer' : 'grab';
+    });
+
+    // ==========================================
+    // 11. CAMERA PRESETS & SMOOTH TRANSITIONS
+    // ==========================================
+    function moveCameraTo(targetPos, targetLookAt, duration = 1000) {
+      const startPos = camera.position.clone();
+      const startLook = controls.target.clone();
+      const startTime = performance.now();
+
+      function lerpCam(now) {
+        const elapsed = now - startTime;
+        const p = Math.min(elapsed / duration, 1);
+        const ease = 1 - Math.pow(1 - p, 3);
+
+        camera.position.lerpVectors(startPos, targetPos, ease);
+        controls.target.lerpVectors(startLook, targetLookAt, ease);
+        controls.update();
+
+        if (p < 1) {
+          requestAnimationFrame(lerpCam);
+        }
+      }
+      requestAnimationFrame(lerpCam);
+    }
+
+    const camButtons = {
+      'cam-default': { pos: new THREE.Vector3(0, 24, 28), look: new THREE.Vector3(0, 0, 0) },
+      'cam-top': { pos: new THREE.Vector3(0, 36, 0.1), look: new THREE.Vector3(0, 0, 0) },
+      'cam-series': { pos: new THREE.Vector3(4, 12, 4), look: new THREE.Vector3(4, 0, -5.5) },
+      'cam-parallel': { pos: new THREE.Vector3(4, 12, 16), look: new THREE.Vector3(4, 0, 5.5) }
+    };
+
+    Object.keys(camButtons).forEach(id => {
+      const btn = document.getElementById(id);
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.cam-btn').forEach(b => {
+          b.className = 'cam-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-1.5 transition-all';
+        });
+        btn.className = 'cam-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 transition-all';
+        const target = camButtons[id];
+        moveCameraTo(target.pos, target.look);
+      });
+    });
+
+    // Reset Button
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      CircuitState.series.switchOn = true;
+      CircuitState.series.switches = [true, true, true];
+      CircuitState.series.bulbs = [true, true, true];
+      CircuitState.parallel.switchOn = true;
+      CircuitState.parallel.switches = [true, true, true];
+      CircuitState.parallel.bulbs = [true, true, true];
+
+      // Reset all 3 Dedicated Rocker switches per row (SW 1, SW 2, BULB SW)
+      switchComponents.seriesItems.forEach((sw, idx) => {
+        if (sw?.userData?.lever) {
+          sw.userData.lever.rotation.x = -0.21;
+          const lbl = idx === 2 ? 'BULB SW' : `SW-${idx + 1}`;
+          if (sw.userData.paddle?.material) {
+            sw.userData.paddle.material.map = ProceduralTextures.createRockerSwitchTexture(true, lbl, false);
+            sw.userData.paddle.material.needsUpdate = true;
+          }
+        }
+      });
+
+      switchComponents.parallelItems.forEach((sw, idx) => {
+        if (sw?.userData?.lever) {
+          sw.userData.lever.rotation.x = -0.21;
+          const lbl = idx === 2 ? 'BULB SW' : `SW-${idx + 1}`;
+          if (sw.userData.paddle?.material) {
+            sw.userData.paddle.material.map = ProceduralTextures.createRockerSwitchTexture(true, lbl, false);
+            sw.userData.paddle.material.needsUpdate = true;
+          }
+        }
+      });
+
+      bulbComponents.forEach(b => {
+        b.isScrewedIn = true;
+        animateProperty(b.assembly.position, 'y', 0.82, 300);
+        animateProperty(b.assembly.rotation, 'z', 0, 300);
+      });
+
+      updateCircuitSimulation();
+    });
+
+    // Sound Mute Toggle
+    const soundBtn = document.getElementById('btn-sound-toggle');
+    soundBtn.addEventListener('click', () => {
+      SoundFX.muted = !SoundFX.muted;
+      document.getElementById('icon-sound').setAttribute('data-lucide', SoundFX.muted ? 'volume-x' : 'volume-2');
+      if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        lucide.createIcons();
+      }
+    });
+
+    // ==========================================
+    // MULTIMETER TOGGLE & CLOSE CONTROLS
+    // ==========================================
+    const multimeterPanel = document.getElementById('multimeter-panel');
+    const openMultimeterTab = document.getElementById('btn-open-multimeter-tab');
+    const toggleMultimeterBtn = document.getElementById('btn-toggle-multimeter');
+    const closeMultimeterBtn = document.getElementById('btn-close-multimeter');
+    const multimeterBtnText = document.getElementById('multimeter-btn-text');
+
+    let isMultimeterVisible = true;
+
+    function setMultimeterVisible(visible) {
+      isMultimeterVisible = visible;
+      if (visible) {
+        multimeterPanel.classList.remove('translate-x-[120%]', 'opacity-0');
+        multimeterPanel.classList.add('translate-x-0', 'opacity-100');
+        openMultimeterTab.classList.add('translate-x-full');
+        openMultimeterTab.classList.remove('translate-x-0');
+        if (multimeterBtnText) multimeterBtnText.innerText = 'Hide Multimeter';
+        toggleMultimeterBtn.className = 'glass-panel hover:bg-slate-800/90 text-cyan-300 hover:text-white px-3.5 py-2.5 rounded-xl text-xs md:text-sm flex items-center gap-2 transition-all shadow-lg border border-cyan-500/30';
+      } else {
+        multimeterPanel.classList.add('translate-x-[120%]', 'opacity-0');
+        multimeterPanel.classList.remove('translate-x-0', 'opacity-100');
+        openMultimeterTab.classList.remove('translate-x-full');
+        openMultimeterTab.classList.add('translate-x-0');
+        if (multimeterBtnText) multimeterBtnText.innerText = 'Show Multimeter';
+        toggleMultimeterBtn.className = 'glass-panel hover:bg-slate-800/90 text-slate-400 hover:text-white px-3.5 py-2.5 rounded-xl text-xs md:text-sm flex items-center gap-2 transition-all shadow-lg';
+      }
+    }
+
+    if (toggleMultimeterBtn) {
+      toggleMultimeterBtn.addEventListener('click', () => {
+        setMultimeterVisible(!isMultimeterVisible);
+      });
+    }
+
+    if (closeMultimeterBtn) {
+      closeMultimeterBtn.addEventListener('click', () => {
+        setMultimeterVisible(false);
+      });
+    }
+
+    if (openMultimeterTab) {
+      openMultimeterTab.addEventListener('click', () => {
+        setMultimeterVisible(true);
+      });
+    }
+
+    const dismissTipBtn = document.getElementById('btn-dismiss-tip');
+    if (dismissTipBtn) {
+      dismissTipBtn.addEventListener('click', () => {
+        const tipCard = document.getElementById('tip-card');
+        if (tipCard) tipCard.classList.add('hidden');
+      });
+    }
+
+    // ==========================================
+    // 12. PHYSICAL MODEL DIY MODAL CONTROLS
+    // ==========================================
+    const diyModal = document.getElementById('diy-modal');
+    document.getElementById('btn-diy-guide').addEventListener('click', () => {
+      diyModal.classList.remove('hidden');
+    });
+
+    const btnHostingGuide = document.getElementById('btn-hosting-guide');
+    if (btnHostingGuide) {
+      btnHostingGuide.addEventListener('click', () => {
+        diyModal.classList.remove('hidden');
+        const hostingBtn = document.getElementById('tab-btn-hosting');
+        if (hostingBtn) hostingBtn.click();
+      });
+    }
+
+    document.getElementById('btn-close-modal').addEventListener('click', () => {
+      diyModal.classList.add('hidden');
+    });
+    document.getElementById('btn-close-modal-bottom').addEventListener('click', () => {
+      diyModal.classList.add('hidden');
+    });
+
+    // Modal Tabs
+    const tabs = ['materials', 'steps', 'viva', 'hosting'];
+    tabs.forEach(tName => {
+      const tabBtn = document.getElementById(`tab-btn-${tName}`);
+      if (!tabBtn) return;
+      tabBtn.addEventListener('click', () => {
+        tabs.forEach(other => {
+          const btn = document.getElementById(`tab-btn-${other}`);
+          const content = document.getElementById(`tab-content-${other}`);
+          if (!btn || !content) return;
+          if (other === tName) {
+            btn.className = 'py-3 px-3 md:px-4 text-amber-400 border-b-2 border-amber-400 flex items-center gap-1.5 md:gap-2 shrink-0';
+            content.classList.remove('hidden');
+          } else {
+            btn.className = 'py-3 px-3 md:px-4 text-slate-400 hover:text-slate-200 flex items-center gap-1.5 md:gap-2 shrink-0';
+            content.classList.add('hidden');
+          }
+        });
+      });
+    });
+
+    // ==========================================
+    // 13. ANIMATION RENDER LOOP
+    // ==========================================
+    let clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+      controls.update();
+
+      // Update Electron Particle Flow
+      const sSwitch = CircuitState.series.switchOn;
+      const sBulbs = CircuitState.series.bulbs;
+      const sActive = sSwitch && sBulbs.every(b => b === true);
+      const sSpeed = sActive ? 0.35 : 0; // Series particle speed
+
+      const pSwitch = CircuitState.parallel.switchOn;
+      const pBulbs = CircuitState.parallel.bulbs;
+
+      particleSystems.forEach(sys => {
+        let speed = 0;
+        if (sys.conditionFn) {
+          const isActive = sys.conditionFn();
+          speed = isActive ? 0.75 : 0;
+        } else if (sys.circuit === 'series') {
+          speed = sSpeed;
+        } else if (sys.circuit === 'parallel') {
+          const anyBranchOn = pSwitch && pBulbs.some(b => b === true);
+          speed = anyBranchOn ? 0.75 : 0;
+        }
+
+        if (speed > 0) {
+          for (let i = 0; i < sys.count; i++) {
+            sys.offsets[i] = (sys.offsets[i] + speed * delta) % 1.0;
+            const pt = sys.curve.getPoint(sys.offsets[i]);
+            sys.dummy.position.copy(pt);
+            sys.dummy.updateMatrix();
+            sys.instMesh.setMatrixAt(i, sys.dummy.matrix);
+          }
+          sys.instMesh.instanceMatrix.needsUpdate = true;
+          sys.instMesh.visible = true;
+        } else {
+          sys.instMesh.visible = false;
+        }
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    // Dynamic Responsive Camera Framing for Mobile / Tablets / Desktop
+    function updateResponsiveCamera() {
+      const isMobile = window.innerWidth < 768;
+      const isPortrait = window.innerHeight > window.innerWidth;
+
+      if (isPortrait || isMobile) {
+        // Elevated perspective to comfortably fit the 36-unit extension board in vertical viewport
+        camera.fov = 54;
+        camera.position.set(0, 36, 36);
+        controls.target.set(0, 0, 0);
+      } else {
+        // Desktop / Landscape framing
+        camera.fov = 45;
+        camera.position.set(0, 24, 28);
+        controls.target.set(0, 0, 0);
+      }
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Window Resize Handler
+    window.addEventListener('resize', updateResponsiveCamera);
+
+    // Initial Circuit Calculation & Start Render with Responsive Camera
+    updateResponsiveCamera();
+    updateCircuitSimulation();
+    animate();
+  </script>
+</body>
+</html>
